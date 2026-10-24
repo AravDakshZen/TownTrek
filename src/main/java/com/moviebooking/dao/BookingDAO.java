@@ -134,4 +134,77 @@ try (PreparedStatement ps = con.prepareStatement(selectSql)) {
             }
         }
     }
+
+    public List<com.moviebooking.model.MovieBookingDetail> findBookingsByCustomer(String customerName) throws SQLException {
+        String sql = """
+            SELECT b.booking_id, b.customer_name, m.movie_name,
+                   t.theatre_name, s.show_date, s.show_time,
+                   b.seat_codes, b.total_amount, b.booking_status, b.booking_date
+            FROM bookings b
+            JOIN movies m ON b.movie_id = m.movie_id
+            JOIN shows s ON b.show_id = s.show_id
+            JOIN theatres t ON s.theatre_id = t.theatre_id
+            WHERE b.customer_name = ?
+            ORDER BY b.booking_id DESC
+            """;
+        List<com.moviebooking.model.MovieBookingDetail> list = new ArrayList<>();
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, customerName);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    Timestamp ts = rs.getTimestamp("booking_date");
+                    list.add(new com.moviebooking.model.MovieBookingDetail(
+                            rs.getInt("booking_id"),
+                            rs.getString("customer_name"),
+                            rs.getString("movie_name"),
+                            rs.getString("theatre_name"),
+                            rs.getDate("show_date").toLocalDate(),
+                            rs.getTime("show_time").toLocalTime(),
+                            rs.getString("seat_codes"),
+                            rs.getBigDecimal("total_amount"),
+                            rs.getString("booking_status"),
+                            ts != null ? ts.toLocalDateTime() : null
+                    ));
+                }
+            }
+        }
+        return list;
+    }
+
+    public com.moviebooking.model.MovieBookingDetail findDetailById(int bookingId) throws SQLException {
+        String sql = """
+            SELECT b.booking_id, b.customer_name, m.movie_name,
+                   t.theatre_name, s.show_date, s.show_time,
+                   b.seat_codes, b.total_amount, b.booking_status, b.booking_date
+            FROM bookings b
+            JOIN movies m ON b.movie_id = m.movie_id
+            JOIN shows s ON b.show_id = s.show_id
+            JOIN theatres t ON s.theatre_id = t.theatre_id
+            WHERE b.booking_id = ?
+            """;
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setInt(1, bookingId);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Timestamp ts = rs.getTimestamp("booking_date");
+                    return new com.moviebooking.model.MovieBookingDetail(
+                            rs.getInt("booking_id"),
+                            rs.getString("customer_name"),
+                            rs.getString("movie_name"),
+                            rs.getString("theatre_name"),
+                            rs.getDate("show_date").toLocalDate(),
+                            rs.getTime("show_time").toLocalTime(),
+                            rs.getString("seat_codes"),
+                            rs.getBigDecimal("total_amount"),
+                            rs.getString("booking_status"),
+                            ts != null ? ts.toLocalDateTime() : null
+                    );
+                }
+            }
+        }
+        return null;
+    }
 }
+

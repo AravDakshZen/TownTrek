@@ -73,4 +73,38 @@ public class AuthDAO {
             }
         }
     }
+
+    public com.moviebooking.model.UserAccount authenticate(String email, String password)
+            throws Exception {
+
+        String sql = """
+            SELECT user_id, full_name, email, password_salt, password_hash
+            FROM users
+            WHERE email = ?
+            """;
+
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setString(1, email);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (!rs.next()) {
+                    return null;
+                }
+
+                int userId = rs.getInt("user_id");
+                String name = rs.getString("full_name");
+                String userEmail = rs.getString("email");
+                String salt = rs.getString("password_salt");
+                String storedHash = rs.getString("password_hash");
+
+                boolean valid = PasswordUtil.verifyPassword(
+                        password, salt, storedHash);
+
+                return valid ? new com.moviebooking.model.UserAccount(userId, name, userEmail) : null;
+            }
+        }
+    }
 }
+

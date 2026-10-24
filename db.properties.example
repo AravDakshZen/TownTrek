@@ -1,0 +1,10 @@
+# ====================================================================
+# TOWNTREK DATABASE CONFIGURATION (db.properties)
+# Rename this file to 'db.properties' if you want to override defaults.
+# You can also use environment variables DB_URL, DB_USER, DB_PASSWORD.
+# ====================================================================
+
+
+db.url=jdbc:mysql://localhost:3306/movie_booking_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+db.user=root
+db.password=

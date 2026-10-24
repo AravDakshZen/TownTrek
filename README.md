@@ -1,129 +1,118 @@
-# Online Movie Ticket Booking System
+# TownTrek — District Console Application
 
-A complete, console-based **Online Movie Ticket Booking System** built with **Core Java, JDBC, MySQL 8, and Maven**.
+**TownTrek** is an all-in-one console-based district exploration and booking application developed using **Java 17, JDBC, MySQL 8, and Maven**. It serves as a unified digital district companion for city dwellers, tourists, and newcomers to explore entertainment, events, landmarks, dining, and essential emergency services.
 
-## 1. Project Overview
+---
 
-CineBook allows users to view movies and showtimes, inspect a seat map, book multiple seats, apply the `CINE10` discount coupon, and cancel bookings. Movie, show, seat, and booking information is stored in MySQL.
+## 1. Core Modules & Features
 
-## 2. Features
+1. **Movies & Cinema Booking**:
+   - Browse films, genres, languages, and showtimes.
+   - Interactive 5 × 8 screen seat map (`O = Available`, `X = Booked`).
+   - Cinema concessions (Popcorn, Juices, Nachos, Drinks).
+   - Instant booking confirmation with coupon support (`CINE10` for 10% off).
+   - Ticket pass look-up and seat release cancellation.
 
-1. **View All Movies**: Displays movie ID, name, genre, duration, and language.
-2. **View All Shows**: Displays show ID, movie name, date, and time.
-3. **View Available Seats**: Displays a 5 × 8 seat map; `O` means available and `X` means booked.
-4. **Book Movie Tickets**: Validates seats and records a booking.
-5. **Coupon Support**: `CINE10` gives 10% off.
-6. **Cancel Booking**: Marks a booking cancelled and releases its seats.
-7. **Database Persistence**: Stores records in MySQL using JDBC `PreparedStatement`s.
+2. **Parties, Concerts & Comedy Nights**:
+   - Discover live gigs, EDM festivals, rooftop DJ parties, and standup comedy specials.
+   - View artist profiles, ticket prices, and live slot capacity.
+   - Book multi-pass tickets with digital booking IDs.
 
-## 3. Technology Stack
+3. **District Events & Workshops**:
+   - Community workshops (pottery, AI/tech, urban farming).
+   - Food carnivals, street fests, marathons, and cultural dance galas.
+   - RSVP and registration for individuals and groups.
 
-- **Language**: Java 17
-- **Database**: MySQL 8
-- **Connectivity**: JDBC with MySQL Connector/J 8.3.0
-- **Build Tool**: Apache Maven
-- **IDE**: Visual Studio Code
+4. **Tourist Attractions & City Landmarks**:
+   - Heritage forts, Gothic basilicas, clock towers, coastal beaches, museums, and botanical parks.
+   - Comprehensive visiting guide with opening hours, entry fees, highlights, and best visiting times.
 
-## 4. Folder Structure
+5. **Dining & Shopping Centres**:
+   - Curated directory of restaurants, cafes, shopping malls, street food streets, and heritage bazaars.
+   - Details: price range (₹ to ₹₹₹₹), ratings (★ 4.4 to 4.8), address, timings, and contact numbers.
+
+6. **Essential Public Services & Emergency Contacts**:
+   - 24/7 rapid dispatch helplines (112, 100, 108, 1091, 1098).
+   - Hospital trauma centers, police stations, fire rescue squads, and municipal civic services.
+
+7. **My District Passes & Unified Booking Management**:
+   - Centralized dashboard displaying all active and past bookings across movies, concerts, and events.
+   - Unified cancellation portal that restores seat/capacity slots immediately.
+
+8. **City Quick Search**:
+   - Search across landmarks, food spots, events, and movies using any keyword.
+
+---
+
+## 2. Aesthetic Design & Menu Interface
+
+TownTrek uses a clean, modern aesthetic with consistent dividing rules and aligned tabular listings:
 
 ```text
-MovieTicketBookingSystem/
-├── pom.xml
-├── README.md
-├── database/
-│   ├── schema.sql
-│   └── sample_data.sql
-└── src/main/java/com/moviebooking/
-    ├── Main.java
-    ├── config/DBConnection.java
-    ├── model/
-    │   ├── Movie.java
-    │   ├── Show.java
-    │   ├── Seat.java
-    │   └── Booking.java
-    ├── dao/
-    │   ├── MovieDAO.java
-    │   ├── ShowDAO.java
-    │   ├── SeatDAO.java
-    │   └── BookingDAO.java
-    ├── service/BookingService.java
-    └── util/InputHelper.java
+____________________________________________________________________________________
+                             TOWNTREK DISTRICT HUB
+____________________________________________________________________________________
+ Active User : Aravindh Murugesh (arav@district.com)
+ District    : Metropolitan Central District
+____________________________________________________________________________________
+  1. Movies & Cinema             Browse movies, cinemas, seat maps & book tickets
+  2. Parties & Live Concerts     Discover DJ nights, music fests & comedy shows
+  3. Nearby Events & Workshops   Register for workshops, food fests & sports
+  4. Tourist Attractions         Explore monuments, beaches, museums & nature parks
+  5. Dining & Shopping Centres   Locate top restaurants, cafes, markets & malls
+  6. Emergency & Public Services 24/7 Police, trauma care, ambulance & civic helplines
+  7. My Passes & Bookings        Unified ticket dashboard & cancellations
+  8. City Quick Search           Find spots, events, or movies by keyword
+  0. Sign Out / Exit
+____________________________________________________________________________________
 ```
 
-## 5. Database Tables
+---
 
-- `movies`: movie details.
-- `shows`: movie show dates and times.
-- `seats`: seat code, category, price, and availability for each show.
-- `bookings`: customer name, show, selected seat codes, coupon, amount, and status.
+## 3. Database Setup & Migration
 
-## 6. Database Setup
+### One-Step Migration
+Run the complete migration script located at `database/migration_district_towntrek.sql` in MySQL Workbench or via terminal:
 
-Run `database/schema.sql` in MySQL Workbench. If you already created the tables, do not run it again to replace your existing schema.
-
-For a fresh database, run `database/sample_data.sql` once after the schema. If sample data is already inserted, do not run the sample script again because it will create duplicate rows.
-
-## 7. Configure Database Credentials
-
-PowerShell, for the current terminal session:
-
-```powershell
-$env:DB_USER = "root"
-$env:DB_PASSWORD = "your_actual_mysql_password"
+```bash
+mysql -u root -p < database/migration_district_towntrek.sql
 ```
 
-Optional database URL:
+This single script:
+- Creates the `movie_booking_db` database if not present.
+- Sets up all 13 relational tables (users, theatres, movies, shows, seats, bookings, parties_concerts, party_bookings, district_events, event_registrations, tourist_attractions, city_spots, emergency_services).
+- Seeds **at least 3 realistic records per category** across all domains.
+- Adds test accounts (e.g. `arav@district.com` with password `password123`).
 
-```powershell
-$env:DB_URL = "jdbc:mysql://localhost:3306/movie_booking_db?useSSL=false&serverTimezone=UTC"
-```
+---
 
-## 8. Build and Run
+## 4. Database Credentials Configuration
 
-Open the project root folder in VS Code, then run:
+TownTrek automatically detects configuration from three sources (in priority order):
+
+1. **Environment Variables**:
+   ```powershell
+   $env:DB_USER = "root"
+   $env:DB_PASSWORD = "your_actual_mysql_password"
+   $env:DB_URL = "jdbc:mysql://localhost:3306/movie_booking_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC"
+   ```
+
+2. **Optional `db.properties` File**:
+   Copy `db.properties.example` to `db.properties` in the project root:
+   ```properties
+   db.url=jdbc:mysql://localhost:3306/movie_booking_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+   db.user=root
+   db.password=your_password_here
+   ```
+
+3. **Built-in Defaults**:
+   Defaults to `localhost:3306/movie_booking_db` with user `root` and blank password.
+
+---
+
+## 5. Build and Run
 
 ```powershell
 mvn clean compile
 mvn exec:java
 ```
-
-Install JDK 17+ and Maven first. Install the VS Code **Extension Pack for Java** for IDE support.
-
-## 9. Main Menu
-
-```text
-============== CINEBOOK MENU ==============
-1. View All Movies
-2. View All Shows
-3. View Available Seats
-4. Book Movie Tickets
-5. Cancel Booking
-0. Exit
-============================================
-```
-
-## 10. Seat Pricing
-
-| Rows | Category | Price |
-|---|---|---:|
-| A–B | REGULAR | Rs. 150 |
-| C–D | PREMIUM | Rs. 250 |
-| E | VIP | Rs. 400 |
-
-## 11. Common Issues
-
-| Issue | Solution |
-|---|---|
-| `mvn` is not recognized | Install Maven and add it to `PATH`, then reopen the terminal. |
-| `Access denied for user` | Set the correct `DB_USER` and `DB_PASSWORD`. |
-| `Unknown database` | Execute `database/schema.sql` in Workbench. |
-| `Communications link failure` | Start MySQL Server and verify port 3306. |
-| `Seat is unavailable or invalid` | Check the show ID and seat map; choose an available seat. |
-
-## 12. Viva Questions
-
-1. **Why use JDBC?** JDBC connects Java code to MySQL and allows SQL queries to be executed from the application.
-2. **Why use `PreparedStatement`?** It binds user input as parameters and helps prevent SQL injection.
-3. **Why use a transaction for booking?** The booking record and seat updates should succeed together or roll back together.
-4. **How does cancellation work?** The booking status changes to `CANCELLED` and the selected seats become available again.
-5. **How does `CINE10` work?** It reduces the total seat price by 10%.
