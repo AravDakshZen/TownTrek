@@ -54,8 +54,8 @@ Traditional urban apps force users to juggle separate platforms for cinema ticke
 <table width="100%">
 <tr>
 <td width="50%" valign="top">
-  <img src="assets/towntrek-cinema-concert.jpg" alt="TownTrek Cinema and Concert Experience" width="100%" /><br/>
-  <sub><b>Cinema & Live Music Hub</b> — Interactive 5×8 seating grids with real-time availability states, concession add-ons, coupon discount engines, and multi-tier VIP concert ticketing.</sub>
+  <img src="assets/towntrek-hero.png" alt="TownTrek Unified Urban System" width="100%" /><br/>
+  <sub><b>Unified City Ecosystem</b> — Cross-domain search, synchronized user profiles, ticket verification passes with unique confirmation alphanumeric codes, and automated seat releases.</sub>
 </td>
 <td width="50%" valign="top">
   <img src="assets/towntrek-terminal-ui.png" alt="TownTrek Console Interface" width="100%" /><br/>
@@ -64,12 +64,12 @@ Traditional urban apps force users to juggle separate platforms for cinema ticke
 </tr>
 <tr>
 <td width="50%" valign="top">
-  <img src="assets/towntrek-city-exploration.jpg" alt="TownTrek Urban Landmark and Culinary Directory" width="100%" /><br/>
+  <img src="assets/towntrek-city-exploration.png" alt="TownTrek Urban Landmark and Culinary Directory" width="100%" /><br/>
   <sub><b>Urban Landmarks & Dining Guide</b> — Curated tourist hotspots with operating hours and travel tips, 5-star culinary spots with price indicators (₹ to ₹₹₹₹), and 24/7 emergency dispatch contacts.</sub>
 </td>
 <td width="50%" valign="top">
-  <img src="assets/towntrek-hero.jpg" alt="TownTrek Unified Urban System" width="100%" /><br/>
-  <sub><b>Unified City Ecosystem</b> — Cross-domain search, synchronized user profiles, ticket verification passes with unique confirmation alphanumeric codes, and automated seat releases.</sub>
+  <img src="assets/towntrek-cinema-concert.png" alt="TownTrek Cinema and Concert Experience" width="100%" /><br/>
+  <sub><b>Cinema & Live Music Hub</b> — Interactive 5×8 seating grids with real-time availability states, concession add-ons, coupon discount engines, and multi-tier VIP concert ticketing.</sub>
 </td>
 </tr>
 </table>
