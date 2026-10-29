@@ -4,7 +4,7 @@
   <b>The modern, console-native urban companion for discovering cinema screenings, live concerts, workshops, cultural landmarks, culinary spots, and 24/7 public emergency services.</b>
 </p>
 
-> ✨ **TownTrek v1.0 Production Release** — High-performance, multi-domain city discovery and reservation engine engineered with **Java 17 LTS, JDBC, MySQL 8, and Apache Maven**. Features real-time 5×8 cinema seating matrices, multi-pass concert ticketing, workshop RSVP counters, curated culinary directories, cryptographic salt-and-hash authentication, and centralized cross-domain pass cancellations.
+> ✨ **TownTrek v1.0** — High-performance, multi-domain city discovery and reservation engine engineered with **Java 17 LTS, JDBC, MySQL 8, and Apache Maven**. Features real-time 5×8 cinema seating matrices, multi-pass concert ticketing, workshop RSVP counters, curated culinary directories, cryptographic salt-and-hash authentication, and centralized cross-domain pass cancellations.
 
 <p align="center">
   <img src="assets/towntrek-hero.jpg" alt="TownTrek: Unified Urban Exploration & Booking Platform" width="100%" />
@@ -29,8 +29,6 @@
   <a href="#-quick-start-guide"><img alt="Quickstart" src="https://img.shields.io/badge/Quickstart-3%20Steps-2EA043?style=for-the-badge&logo=powershell&logoColor=white" /></a>
   <a href="https://github.com/AravDakshZen/TownTrek/issues"><img alt="PRs Welcome" src="https://img.shields.io/badge/PRs-Welcome-brightgreen?style=for-the-badge" /></a>
 </p>
-
-<p align="center"><b>English</b> · <a href="#-internationalization">Español</a> · <a href="#-internationalization">Français</a> · <a href="#-internationalization">Deutsch</a> · <a href="#-internationalization">日本語</a> · <a href="#-internationalization">한국어</a> · <a href="#-internationalization">简体中文</a> · <a href="#-internationalization">العربية</a> · <a href="#-internationalization">हिन्दी</a></p>
 
 ---
 
@@ -401,9 +399,9 @@ ________________________________________________________________________________
 ### 2. Interactive Cinema Auditorium Seat Map
 
 ```text
-====================================================================================
+____________________________________________________________________________________
                         TOWNTREK CINEMA AUDITORIUM SCREEN
-====================================================================================
+____________________________________________________________________________________
   [Screen Stage Front]
   
   Row A:  [O] A1   [O] A2   [X] A3   [X] A4   [O] A5   [O] A6   [O] A7   [O] A8
@@ -413,7 +411,7 @@ ________________________________________________________________________________
   Row E:  [O] E1   [O] E2   [O] E3   [O] E4   [O] E5   [O] E6   [O] E7   [O] E8
   
   Legend: [O] Available    [X] Booked
-====================================================================================
+____________________________________________________________________________________
 ```
 
 ### 3. Generated TownTrek Booking Pass
@@ -586,7 +584,7 @@ TownTrek/
 
 ---
 
-## 🗺️ Roadmap & Future Horizons
+## 🗺️ Roadmap 
 
 - [x] **v1.0 — Core Foundation**
   - [x] Full Java 17 + JDBC + MySQL 8 integration
@@ -599,31 +597,6 @@ TownTrek/
   - [x] 24/7 public emergency and trauma hotline directory
   - [x] Unified pass manager with cross-module cancellation
   - [x] Global keyword search across all 13 domains
-- [ ] **v1.1 — Enhanced Explorer Experience**
-  - [ ] Terminal QR code rendering for mobile pass check-in
-  - [ ] Dynamic receipt generator exporting tickets to text/PDF files
-  - [ ] User review and rating submission module for dining spots
-- [ ] **v2.0 — Enterprise Evolution**
-  - [ ] REST API layer built with Spring Boot 3
-  - [ ] Web-based React & TailwindCSS dashboard
-  - [ ] Real-time WebSocket notifications for ticket availability
-
----
-
-## 🌐 Internationalization
-
-TownTrek is designed for global metropolitan cities. Localization docs:
-
-| Language | Code | Guide | Status |
-|:---|:---:|:---:|:---:|
-| **English** | `en` | Default README | Active |
-| **Español** | `es` | Guía de Inicio Rápido | Community |
-| **Français** | `fr` | Guide d'Exploration | Community |
-| **Deutsch** | `de` | Schnellstartanleitung | Community |
-| **日本語** | `ja` | クイックスタートガイド | Community |
-| **한국어** | `ko` | 시작 가이드 | Community |
-| **简体中文** | `zh` | 快速入门指南 | Community |
-| **हिन्दी** | `hi` | शुरुआत गाइड | Community |
 
 ---
 
