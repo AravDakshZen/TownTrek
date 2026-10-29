@@ -58,7 +58,7 @@ Traditional urban apps force users to juggle separate platforms for cinema ticke
   <sub><b>Cinema & Live Music Hub</b> — Interactive 5×8 seating grids with real-time availability states, concession add-ons, coupon discount engines, and multi-tier VIP concert ticketing.</sub>
 </td>
 <td width="50%" valign="top">
-  <img src="assets/towntrek-terminal-ui.jpg" alt="TownTrek Console Interface" width="100%" /><br/>
+  <img src="assets/towntrek-terminal-ui.png" alt="TownTrek Console Interface" width="100%" /><br/>
   <sub><b>Aesthetic Terminal UI</b> — Clean Unicode dividing rules, aligned tabular listings, instant input validation, and high-contrast matrix displays designed for power users.</sub>
 </td>
 </tr>
