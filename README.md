@@ -7,7 +7,7 @@
 > ✨ **TownTrek v1.0** — High-performance, multi-domain city discovery and reservation engine engineered with **Java 17 LTS, JDBC, MySQL 8, and Apache Maven**. Features real-time 5×8 cinema seating matrices, multi-pass concert ticketing, workshop RSVP counters, curated culinary directories, cryptographic salt-and-hash authentication, and centralized cross-domain pass cancellations.
 
 <p align="center">
-  <img src="assets/towntrek-hero.jpg" alt="TownTrek: Unified Urban Exploration & Booking Platform" width="100%" />
+  <img src="assets/towntrek-hero.png" alt="TownTrek: Unified Urban Exploration & Booking Platform" width="100%" />
 </p>
 
 <p align="center">
@@ -584,7 +584,7 @@ TownTrek/
 
 ---
 
-## 🗺️ Roadmap 
+## 🗺️ Roadmap
 
 - [x] **v1.0 — Core Foundation**
   - [x] Full Java 17 + JDBC + MySQL 8 integration
