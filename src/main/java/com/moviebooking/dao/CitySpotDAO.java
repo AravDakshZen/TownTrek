@@ -16,7 +16,7 @@ public class CitySpotDAO {
         String sql = """
             SELECT spot_id, name, spot_type, cuisine_or_specialty, price_range, address, rating, contact_number, timings
             FROM city_spots
-            ORDER BY rating DESC, name
+            ORDER BY spot_id ASC
             """;
         List<CitySpot> list = new ArrayList<>();
         try (Connection con = DBConnection.getConnection();
@@ -34,7 +34,7 @@ public class CitySpotDAO {
             SELECT spot_id, name, spot_type, cuisine_or_specialty, price_range, address, rating, contact_number, timings
             FROM city_spots
             WHERE spot_type = ?
-            ORDER BY rating DESC, name
+            ORDER BY spot_id ASC
             """;
         List<CitySpot> list = new ArrayList<>();
         try (Connection con = DBConnection.getConnection();
@@ -70,7 +70,7 @@ public class CitySpotDAO {
             SELECT spot_id, name, spot_type, cuisine_or_specialty, price_range, address, rating, contact_number, timings
             FROM city_spots
             WHERE name LIKE ? OR cuisine_or_specialty LIKE ? OR address LIKE ?
-            ORDER BY rating DESC
+            ORDER BY spot_id ASC
             """;
         List<CitySpot> list = new ArrayList<>();
         try (Connection con = DBConnection.getConnection();

@@ -16,7 +16,7 @@ public class PartyConcertDAO {
             SELECT event_id, title, category, artist_performer, venue, location,
                    event_date, event_time, ticket_price, total_capacity, available_slots, description
             FROM parties_concerts
-            ORDER BY event_date, event_time
+            ORDER BY event_id ASC
             """;
         List<PartyConcert> list = new ArrayList<>();
         try (Connection con = DBConnection.getConnection();
@@ -35,7 +35,7 @@ public class PartyConcertDAO {
                    event_date, event_time, ticket_price, total_capacity, available_slots, description
             FROM parties_concerts
             WHERE category = ?
-            ORDER BY event_date, event_time
+            ORDER BY event_id ASC
             """;
         List<PartyConcert> list = new ArrayList<>();
         try (Connection con = DBConnection.getConnection();
@@ -136,7 +136,7 @@ public class PartyConcertDAO {
             FROM party_bookings b
             JOIN parties_concerts e ON e.event_id = b.event_id
             WHERE b.user_email = ?
-            ORDER BY b.booking_id DESC
+            ORDER BY b.booking_id ASC
             """;
         List<PartyBooking> list = new ArrayList<>();
         try (Connection con = DBConnection.getConnection();

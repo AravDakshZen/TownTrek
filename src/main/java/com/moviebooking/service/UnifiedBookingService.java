@@ -1,7 +1,7 @@
 package com.moviebooking.service;
 
 import com.moviebooking.dao.BookingDAO;
-import com.moviebooking.dao.DistrictEventDAO;
+import com.moviebooking.dao.TownTrekEventDAO;
 import com.moviebooking.dao.PartyConcertDAO;
 import com.moviebooking.model.EventRegistration;
 import com.moviebooking.model.MovieBookingDetail;
@@ -13,7 +13,7 @@ import java.util.List;
 public class UnifiedBookingService {
     private final BookingDAO movieBookingDAO = new BookingDAO();
     private final PartyConcertDAO partyConcertDAO = new PartyConcertDAO();
-    private final DistrictEventDAO districtEventDAO = new DistrictEventDAO();
+    private final TownTrekEventDAO townTrekEventDAO = new TownTrekEventDAO();
 
     public List<MovieBookingDetail> getMovieBookings(String customerName) throws SQLException {
         return movieBookingDAO.findBookingsByCustomer(customerName);
@@ -40,14 +40,14 @@ public class UnifiedBookingService {
     }
 
     public List<EventRegistration> getEventRegistrations(String userEmail) throws SQLException {
-        return districtEventDAO.findRegistrationsByUser(userEmail);
+        return townTrekEventDAO.findRegistrationsByUser(userEmail);
     }
 
     public EventRegistration getEventRegistrationById(int regId) throws SQLException {
-        return districtEventDAO.findRegistrationById(regId);
+        return townTrekEventDAO.findRegistrationById(regId);
     }
 
     public boolean cancelEventRegistration(int regId) throws SQLException {
-        return districtEventDAO.cancelRegistration(regId);
+        return townTrekEventDAO.cancelRegistration(regId);
     }
 }

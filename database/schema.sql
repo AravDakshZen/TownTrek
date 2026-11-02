@@ -1,5 +1,5 @@
 -- ====================================================================
--- TOWNTREK DISTRICT CONSOLE APPLICATION - COMPLETE DATABASE SCHEMA
+-- TOWNTREK CONSOLE APPLICATION - COMPLETE DATABASE SCHEMA
 -- ====================================================================
 
 
@@ -100,8 +100,8 @@ CREATE TABLE IF NOT EXISTS party_bookings (
     FOREIGN KEY (event_id) REFERENCES parties_concerts(event_id) ON DELETE CASCADE
 );
 
--- 9. DISTRICT EVENTS & WORKSHOPS TABLE
-CREATE TABLE IF NOT EXISTS district_events (
+-- 9. TOWNTREK EVENTS & WORKSHOPS TABLE
+CREATE TABLE IF NOT EXISTS towntrek_events (
     event_id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(150) NOT NULL,
     category ENUM('WORKSHOP', 'FOOD_FEST', 'SPORTS', 'CULTURAL') NOT NULL,
@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS district_events (
     description TEXT
 );
 
--- 10. DISTRICT EVENT REGISTRATIONS TABLE
+-- 10. TOWNTREK EVENT REGISTRATIONS TABLE
 CREATE TABLE IF NOT EXISTS event_registrations (
     reg_id INT AUTO_INCREMENT PRIMARY KEY,
     customer_name VARCHAR(100) NOT NULL,
@@ -125,7 +125,7 @@ CREATE TABLE IF NOT EXISTS event_registrations (
     total_fee DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     status ENUM('CONFIRMED', 'CANCELLED') DEFAULT 'CONFIRMED',
     reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (event_id) REFERENCES district_events(event_id) ON DELETE CASCADE
+    FOREIGN KEY (event_id) REFERENCES towntrek_events(event_id) ON DELETE CASCADE
 );
 
 -- 11. TOURIST ATTRACTIONS & LANDMARKS TABLE
@@ -146,7 +146,7 @@ CREATE TABLE IF NOT EXISTS city_spots (
     name VARCHAR(150) NOT NULL,
     spot_type ENUM('RESTAURANT', 'CAFE', 'SHOPPING_MALL', 'STREET_FOOD_HUB', 'LOCAL_BAZAAR') NOT NULL,
     cuisine_or_specialty VARCHAR(120) NOT NULL,
-    price_range ENUM('₹', '₹₹', '₹₹₹', '₹₹₹₹') NOT NULL,
+    price_range VARCHAR(20) NOT NULL,
     address VARCHAR(200) NOT NULL,
     rating DECIMAL(2,1) NOT NULL,
     contact_number VARCHAR(30) NOT NULL,

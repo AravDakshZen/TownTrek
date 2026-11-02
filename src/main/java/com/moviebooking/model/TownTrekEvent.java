@@ -4,7 +4,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
-public class DistrictEvent {
+public class TownTrekEvent {
     private final int eventId;
     private final String title;
     private final String category; // WORKSHOP, FOOD_FEST, SPORTS, CULTURAL
@@ -17,7 +17,7 @@ public class DistrictEvent {
     private final int registeredCount;
     private final String description;
 
-    public DistrictEvent(int eventId, String title, String category, String venue,
+    public TownTrekEvent(int eventId, String title, String category, String venue,
                          String location, LocalDate eventDate, LocalTime eventTime,
                          BigDecimal entryFee, int maxCapacity, int registeredCount,
                          String description) {

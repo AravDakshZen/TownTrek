@@ -1,6 +1,62 @@
-﻿target/
+# Maven / Java
+target/
 *.class
 db.properties
+
+# Node.js / React
+node_modules/
+dist/
+frontend/node_modules/
+frontend/dist/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# IDE files
 .idea/
-*.iml
+.iml
 .vscode/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local scripts
+powershell.bat
+
+
+# Java
+target/
+*.class
+db.properties
+
+# React
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Logs
+*.log
+
+# Windows
+Thumbs.db
+.DS_Store
+
+# Invalid artifact
+/NUL

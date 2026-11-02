@@ -1,7 +1,7 @@
 package com.moviebooking.dao;
 
 import com.moviebooking.config.DBConnection;
-import com.moviebooking.model.DistrictEvent;
+import com.moviebooking.model.TownTrekEvent;
 import com.moviebooking.model.EventRegistration;
 
 import java.math.BigDecimal;
@@ -9,59 +9,59 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
-public class DistrictEventDAO {
+public class TownTrekEventDAO {
 
-    public List<DistrictEvent> findAll() throws SQLException {
+    public List<TownTrekEvent> findAll() throws SQLException {
         String sql = """
             SELECT event_id, title, category, venue, location,
                    event_date, event_time, entry_fee, max_capacity, registered_count, description
-            FROM district_events
-            ORDER BY event_date, event_time
+            FROM towntrek_events
+            ORDER BY event_id ASC
             """;
-        List<DistrictEvent> list = new ArrayList<>();
+        List<TownTrekEvent> list = new ArrayList<>();
         try (Connection con = DBConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql);
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                list.add(mapDistrictEvent(rs));
+                list.add(mapTownTrekEvent(rs));
             }
         }
         return list;
     }
 
-    public List<DistrictEvent> findByCategory(String category) throws SQLException {
+    public List<TownTrekEvent> findByCategory(String category) throws SQLException {
         String sql = """
             SELECT event_id, title, category, venue, location,
                    event_date, event_time, entry_fee, max_capacity, registered_count, description
-            FROM district_events
+            FROM towntrek_events
             WHERE category = ?
-            ORDER BY event_date, event_time
+            ORDER BY event_id ASC
             """;
-        List<DistrictEvent> list = new ArrayList<>();
+        List<TownTrekEvent> list = new ArrayList<>();
         try (Connection con = DBConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, category);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    list.add(mapDistrictEvent(rs));
+                    list.add(mapTownTrekEvent(rs));
                 }
             }
         }
         return list;
     }
 
-    public DistrictEvent findById(int eventId) throws SQLException {
+    public TownTrekEvent findById(int eventId) throws SQLException {
         String sql = """
             SELECT event_id, title, category, venue, location,
                    event_date, event_time, entry_fee, max_capacity, registered_count, description
-            FROM district_events
+            FROM towntrek_events
             WHERE event_id = ?
             """;
         try (Connection con = DBConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, eventId);
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return mapDistrictEvent(rs);
+                if (rs.next()) return mapTownTrekEvent(rs);
             }
         }
         return null;
@@ -73,7 +73,7 @@ public class DistrictEventDAO {
         try (Connection con = DBConnection.getConnection()) {
             con.setAutoCommit(false);
             try {
-                String checkSql = "SELECT entry_fee, max_capacity, registered_count FROM district_events WHERE event_id = ? FOR UPDATE";
+                String checkSql = "SELECT entry_fee, max_capacity, registered_count FROM towntrek_events WHERE event_id = ? FOR UPDATE";
                 BigDecimal fee;
                 int maxCap;
                 int regCount;
@@ -113,7 +113,7 @@ public class DistrictEventDAO {
                     }
                 }
 
-                String updateSql = "UPDATE district_events SET registered_count = registered_count + ? WHERE event_id = ?";
+                String updateSql = "UPDATE towntrek_events SET registered_count = registered_count + ? WHERE event_id = ?";
                 try (PreparedStatement ps = con.prepareStatement(updateSql)) {
                     ps.setInt(1, attendees);
                     ps.setInt(2, eventId);
@@ -137,9 +137,9 @@ public class DistrictEventDAO {
                    e.title, e.venue, e.event_date, e.event_time,
                    r.attendee_count, r.total_fee, r.status, r.reg_date
             FROM event_registrations r
-            JOIN district_events e ON e.event_id = r.event_id
+            JOIN towntrek_events e ON e.event_id = r.event_id
             WHERE r.user_email = ?
-            ORDER BY r.reg_id DESC
+            ORDER BY r.reg_id ASC
             """;
         List<EventRegistration> list = new ArrayList<>();
         try (Connection con = DBConnection.getConnection();
@@ -160,7 +160,7 @@ public class DistrictEventDAO {
                    e.title, e.venue, e.event_date, e.event_time,
                    r.attendee_count, r.total_fee, r.status, r.reg_date
             FROM event_registrations r
-            JOIN district_events e ON e.event_id = r.event_id
+            JOIN towntrek_events e ON e.event_id = r.event_id
             WHERE r.reg_id = ?
             """;
         try (Connection con = DBConnection.getConnection();
@@ -198,7 +198,7 @@ public class DistrictEventDAO {
                     ps.executeUpdate();
                 }
 
-                String updateEvents = "UPDATE district_events SET registered_count = GREATEST(0, registered_count - ?) WHERE event_id = ?";
+                String updateEvents = "UPDATE towntrek_events SET registered_count = GREATEST(0, registered_count - ?) WHERE event_id = ?";
                 try (PreparedStatement ps = con.prepareStatement(updateEvents)) {
                     ps.setInt(1, attendees);
                     ps.setInt(2, eventId);
@@ -216,8 +216,8 @@ public class DistrictEventDAO {
         }
     }
 
-    private DistrictEvent mapDistrictEvent(ResultSet rs) throws SQLException {
-        return new DistrictEvent(
+    private TownTrekEvent mapTownTrekEvent(ResultSet rs) throws SQLException {
+        return new TownTrekEvent(
                 rs.getInt("event_id"),
                 rs.getString("title"),
                 rs.getString("category"),

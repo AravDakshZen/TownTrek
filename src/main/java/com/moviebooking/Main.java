@@ -11,6 +11,7 @@ import com.moviebooking.util.InputHelper;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.*;
 
 public class Main {
@@ -22,15 +23,29 @@ public class Main {
     private static final BookingService bookingService = new BookingService();
     private static final AuthDAO authDAO = new AuthDAO();
 
-    // TownTrek District Services
+    // TownTrek Services
     private static final PartyConcertService partyService = new PartyConcertService();
-    private static final DistrictEventService eventService = new DistrictEventService();
-    private static final DistrictGuideService guideService = new DistrictGuideService();
+    private static final TownTrekEventService eventService = new TownTrekEventService();
+    private static final TownTrekGuideService guideService = new TownTrekGuideService();
     private static final UnifiedBookingService unifiedBookingService = new UnifiedBookingService();
+
+    // Event Topics
+    private static final String[] EVENT_TOPIC_LABELS = {
+            "Workshops & Learning", "Food Festivals", "Sports & Runs", "Cultural & Arts"
+    };
+    private static final String[] EVENT_TOPIC_CODES = {
+            "WORKSHOP", "FOOD_FEST", "SPORTS", "CULTURAL"
+    };
+    private static final String[] PARTY_TOPIC_LABELS = {
+            "Live Concerts", "Club Parties", "Standup Comedy"
+    };
+    private static final String[] PARTY_TOPIC_CODES = {
+            "CONCERT", "CLUB_PARTY", "COMEDY_NIGHT"
+    };
 
     // Session State
     private static String currentUserName = "Guest Explorer";
-    private static String currentUserEmail = "guest@district.com";
+    private static String currentUserEmail = "guest@towntrek.com";
 
     private static final String DIVIDER = "____________________________________________________________________________________";
     private static final String SUB_DIVIDER = "______________________________________________________";
@@ -48,7 +63,7 @@ public class Main {
                 switch (choice) {
                     case 1 -> movieSectionMenu();
                     case 2 -> partiesConcertsMenu();
-                    case 3 -> districtEventsMenu();
+                    case 3 -> townTrekEventsMenu();
                     case 4 -> touristAttractionsMenu();
                     case 5 -> diningAndShoppingMenu();
                     case 6 -> emergencyServicesMenu();
@@ -56,7 +71,7 @@ public class Main {
                     case 8 -> cityQuickSearch();
                     case 0 -> {
                         System.out.println("\n" + DIVIDER);
-                        System.out.println("  Thank you for using TownTrek. Have a wonderful day in the district!");
+                        System.out.println("  Thank you for using TownTrek. Have a wonderful day exploring!");
                         System.out.println(DIVIDER + "\n");
                         return;
                     }
@@ -74,17 +89,17 @@ public class Main {
 
     private static void printWelcomeBanner() {
         System.out.println("\n" + DIVIDER);
-        System.out.println("                         TOWNTREK  •  DISTRICT CONSOLE");
+        System.out.println("                           TOWNTREK  |  CITY CONSOLE");
         System.out.println("                Your Unified City Exploration & Booking Companion");
         System.out.println(DIVIDER);
     }
 
     private static void printMainMenu() {
         System.out.println("\n" + DIVIDER);
-        System.out.println("                             TOWNTREK DISTRICT HUB");
+        System.out.println("                                TOWNTREK HUB");
         System.out.println(DIVIDER);
         System.out.printf(" Active User : %s (%s)%n", currentUserName, currentUserEmail);
-        System.out.println(" District    : Metropolitan Central District");
+        System.out.println(" City        : Metropolitan Central City");
         System.out.println(DIVIDER);
         System.out.println("  1. Movies & Cinema             Browse movies, cinemas, seat maps & book tickets");
         System.out.println("  2. Parties & Live Concerts     Discover DJ nights, music fests & comedy shows");
@@ -122,7 +137,7 @@ public class Main {
                     case 2 -> createAccount();
                     case 3 -> {
                         currentUserName = "Guest Explorer";
-                        currentUserEmail = "guest@district.com";
+                        currentUserEmail = "guest@towntrek.com";
                         System.out.println("\nWelcome, Guest Explorer! You are browsing in guest mode.");
                         return true;
                     }
@@ -246,18 +261,18 @@ public class Main {
 
     private static void viewShows() throws SQLException {
         List<Show> shows = getShowsInDisplayOrder();
+        int[] widths = {4, 24, 10, 5, 18, 12};
         System.out.println("\n" + DIVIDER);
-        System.out.printf(" %-4s  %-26s  %-11s  %-7s  %-24s  %-20s%n",
-                "NO.", "MOVIE", "DATE", "TIME", "CINEMA", "LOCATION");
+        printTableRow(widths, "NO.", "MOVIE", "DATE", "TIME", "CINEMA", "LOCATION");
         System.out.println(DIVIDER);
 
         for (int i = 0; i < shows.size(); i++) {
             Show show = shows.get(i);
-            System.out.printf(" %-4d  %-26s  %-11s  %-7s  %-24s  %-20s%n",
-                    i + 1,
+            printTableRow(widths,
+                    String.valueOf(i + 1),
                     show.getMovieName(),
-                    show.getShowDate(),
-                    show.getShowTime(),
+                    String.valueOf(show.getShowDate()),
+                    formatTime(show.getShowTime()),
                     show.getTheatreName(),
                     show.getTheatreLocation()
             );
@@ -492,7 +507,8 @@ public class Main {
     }
 
     private static void viewYourTicket() throws Exception {
-        int bookingId = InputHelper.readInt(scanner, "Enter Movie Booking ID: ");
+        if (!displayMovieBookingIds()) return;
+        int bookingId = InputHelper.readInt(scanner, "Enter Movie Booking ID from the list above: ");
         MovieBookingDetail b = unifiedBookingService.getMovieBookingById(bookingId);
         if (b == null) {
             System.out.println("No booking record found for ID: " + bookingId);
@@ -518,7 +534,8 @@ public class Main {
     }
 
     private static void cancelBooking() throws Exception {
-        int bookingId = InputHelper.readInt(scanner, "Enter Movie Booking ID to cancel: ");
+        if (!displayMovieBookingIds()) return;
+        int bookingId = InputHelper.readInt(scanner, "Enter Movie Booking ID from the list above to cancel: ");
         boolean ok = bookingService.cancel(bookingId);
         if (ok) {
             System.out.println("Booking #" + bookingId + " has been successfully cancelled. Seats released.");
@@ -572,29 +589,40 @@ public class Main {
     }
 
     private static void displayPartyList(List<PartyConcert> list) {
+        int[] widths = {3, 27, 12, 10, 5, 8, 6};
         System.out.println("\n" + DIVIDER);
-        System.out.printf(" %-3s  %-30s  %-12s  %-11s  %-7s  %-10s  %-6s%n",
-                "ID", "EVENT TITLE", "CATEGORY", "DATE", "TIME", "PRICE", "SLOTS");
+        printTableRow(widths, "ID", "EVENT TITLE", "CATEGORY", "DATE", "TIME", "PRICE", "SLOTS");
         System.out.println(DIVIDER);
         for (PartyConcert p : list) {
-            System.out.printf(" %-3d  %-30s  %-12s  %-11s  %-7s  Rs.%-7.0f  %-6d%n",
-                    p.getEventId(),
-                    truncate(p.getTitle(), 30),
+            printTableRow(widths,
+                    String.valueOf(p.getEventId()),
+                    p.getTitle(),
                     p.getCategory(),
-                    p.getEventDate(),
-                    p.getEventTime(),
-                    p.getTicketPrice(),
-                    p.getAvailableSlots());
+                    String.valueOf(p.getEventDate()),
+                    formatTime(p.getEventTime()),
+                    "Rs." + p.getTicketPrice().intValue(),
+                    String.valueOf(p.getAvailableSlots()));
         }
         System.out.println(DIVIDER);
         if (list.isEmpty()) System.out.println("No events found in this category.");
     }
 
     private static void viewPartyDetails() throws SQLException {
-        int id = InputHelper.readInt(scanner, "Enter Event ID: ");
-        PartyConcert p = partyService.getEventById(id);
+        String category = selectTopic("SELECT PARTY / CONCERT TOPIC", PARTY_TOPIC_LABELS, PARTY_TOPIC_CODES);
+        if (category == null) return;
+
+        List<PartyConcert> events = partyService.getEventsByCategory(category);
+        System.out.println("\nEvents under this topic:");
+        displayPartyList(events);
+        if (events.isEmpty()) return;
+
+        int id = InputHelper.readInt(scanner, "Enter Event ID from the list above: ");
+        PartyConcert p = events.stream()
+                .filter(item -> item.getEventId() == id)
+                .findFirst()
+                .orElse(null);
         if (p == null) {
-            System.out.println("Event not found with ID: " + id);
+            System.out.println("That event is not in the selected topic.");
             return;
         }
 
@@ -613,10 +641,24 @@ public class Main {
     }
 
     private static void bookPartyPass() throws Exception {
-        int eventId = InputHelper.readInt(scanner, "Enter Event ID to book: ");
-        PartyConcert p = partyService.getEventById(eventId);
+        String category = selectTopic("SELECT PARTY / CONCERT TOPIC", PARTY_TOPIC_LABELS, PARTY_TOPIC_CODES);
+        if (category == null) return;
+
+        List<PartyConcert> available = partyService.getEventsByCategory(category).stream()
+                .filter(p -> p.getAvailableSlots() > 0)
+                .toList();
+
+        System.out.println("\nAvailable events under this topic:");
+        displayPartyList(available);
+        if (available.isEmpty()) return;
+
+        int eventId = InputHelper.readInt(scanner, "Enter Event ID from the list above to book: ");
+        PartyConcert p = available.stream()
+                .filter(item -> item.getEventId() == eventId)
+                .findFirst()
+                .orElse(null);
         if (p == null) {
-            System.out.println("Event not found.");
+            System.out.println("That event is not in the selected topic or has no passes left.");
             return;
         }
 
@@ -630,7 +672,7 @@ public class Main {
         }
 
         BigDecimal total = p.getTicketPrice().multiply(BigDecimal.valueOf(count));
-        System.out.printf("Total Payable: Rs. %.2f for %d pass(es). Confirm? (Y/N): ", total, count);
+        System.out.printf("Total Payable: Rs. %.2f for %d pass(es). Confirm (Y/N): ", total, count);
         String confirm = scanner.nextLine().trim();
         if (!confirm.equalsIgnoreCase("y")) {
             System.out.println("Booking cancelled by user.");
@@ -640,7 +682,7 @@ public class Main {
         int bookingId = partyService.bookTickets(currentUserName, currentUserEmail, eventId, count);
 
         System.out.println("\n" + DIVIDER);
-        System.out.println("                    DISTRICT PASS CONFIRMED");
+        System.out.println("                     TOWNTREK PASS CONFIRMED");
         System.out.println(DIVIDER);
         System.out.println(" Pass ID     : " + bookingId);
         System.out.println(" Holder Name : " + currentUserName);
@@ -655,7 +697,8 @@ public class Main {
     }
 
     private static void cancelPartyPass() throws Exception {
-        int bookingId = InputHelper.readInt(scanner, "Enter Pass ID to cancel: ");
+        if (!displayPartyBookingIds()) return;
+        int bookingId = InputHelper.readInt(scanner, "Enter Pass ID from the list above to cancel: ");
         boolean ok = partyService.cancelBooking(bookingId);
         if (ok) {
             System.out.println("Pass #" + bookingId + " cancelled successfully. Capacity updated.");
@@ -668,12 +711,12 @@ public class Main {
     // MODULE 3: NEARBY EVENTS & WORKSHOPS
     // ====================================================================
 
-    private static void districtEventsMenu() throws Exception {
+    private static void townTrekEventsMenu() throws Exception {
         while (true) {
             System.out.println("\n" + DIVIDER);
-            System.out.println("                   DISTRICT EVENTS, WORKSHOPS & FESTS");
+            System.out.println("                  TOWNTREK EVENTS, WORKSHOPS & FESTS");
             System.out.println(DIVIDER);
-            System.out.println("  1. Explore All District Events");
+            System.out.println("  1. Explore All TownTrek Events");
             System.out.println("  2. Filter by Category (Workshops, Food Fests, Sports, Cultural)");
             System.out.println("  3. View Event Details & Agendas");
             System.out.println("  4. Register for Event / RSVP");
@@ -709,31 +752,44 @@ public class Main {
         }
     }
 
-    private static void displayEventList(List<DistrictEvent> list) {
+    private static void displayEventList(List<TownTrekEvent> list) {
+        int[] widths = {3, 29, 10, 10, 5, 8, 6};
         System.out.println("\n" + DIVIDER);
-        System.out.printf(" %-3s  %-34s  %-11s  %-11s  %-7s  %-9s  %-6s%n",
-                "ID", "EVENT TITLE", "CATEGORY", "DATE", "TIME", "FEE", "SPOTS");
+        printTableRow(widths, "ID", "EVENT TITLE", "CATEGORY", "DATE", "TIME", "FEE", "SPOTS");
         System.out.println(DIVIDER);
-        for (DistrictEvent e : list) {
-            String fee = e.getEntryFee().compareTo(BigDecimal.ZERO) == 0 ? "FREE" : "Rs." + e.getEntryFee().intValue();
-            System.out.printf(" %-3d  %-34s  %-11s  %-11s  %-7s  %-9s  %-6d%n",
-                    e.getEventId(),
-                    truncate(e.getTitle(), 34),
+        for (TownTrekEvent e : list) {
+            String fee = e.getEntryFee().compareTo(BigDecimal.ZERO) == 0
+                    ? "FREE"
+                    : "Rs." + e.getEntryFee().intValue();
+            printTableRow(widths,
+                    String.valueOf(e.getEventId()),
+                    e.getTitle(),
                     e.getCategory(),
-                    e.getEventDate(),
-                    e.getEventTime(),
+                    String.valueOf(e.getEventDate()),
+                    formatTime(e.getEventTime()),
                     fee,
-                    e.getAvailableSlots());
+                    String.valueOf(e.getAvailableSlots()));
         }
         System.out.println(DIVIDER);
         if (list.isEmpty()) System.out.println("No events listed in this category.");
     }
 
     private static void viewEventDetails() throws SQLException {
-        int id = InputHelper.readInt(scanner, "Enter Event ID: ");
-        DistrictEvent e = eventService.getEventById(id);
+        String category = selectTopic("SELECT EVENT TOPIC", EVENT_TOPIC_LABELS, EVENT_TOPIC_CODES);
+        if (category == null) return;
+
+        List<TownTrekEvent> events = eventService.getEventsByCategory(category);
+        System.out.println("\nEvents under this topic:");
+        displayEventList(events);
+        if (events.isEmpty()) return;
+
+        int id = InputHelper.readInt(scanner, "Enter Event ID from the list above: ");
+        TownTrekEvent e = events.stream()
+                .filter(item -> item.getEventId() == id)
+                .findFirst()
+                .orElse(null);
         if (e == null) {
-            System.out.println("Event not found with ID: " + id);
+            System.out.println("That event is not in the selected topic.");
             return;
         }
 
@@ -751,10 +807,24 @@ public class Main {
     }
 
     private static void registerForEvent() throws Exception {
-        int eventId = InputHelper.readInt(scanner, "Enter Event ID to register: ");
-        DistrictEvent e = eventService.getEventById(eventId);
+        String category = selectTopic("SELECT EVENT TOPIC", EVENT_TOPIC_LABELS, EVENT_TOPIC_CODES);
+        if (category == null) return;
+
+        List<TownTrekEvent> available = eventService.getEventsByCategory(category).stream()
+                .filter(e -> e.getAvailableSlots() > 0)
+                .toList();
+
+        System.out.println("\nAvailable events under this topic:");
+        displayEventList(available);
+        if (available.isEmpty()) return;
+
+        int eventId = InputHelper.readInt(scanner, "Enter Event ID from the list above to register: ");
+        TownTrekEvent e = available.stream()
+                .filter(item -> item.getEventId() == eventId)
+                .findFirst()
+                .orElse(null);
         if (e == null) {
-            System.out.println("Event not found.");
+            System.out.println("That event is not in the selected topic or has no spots left.");
             return;
         }
 
@@ -787,7 +857,8 @@ public class Main {
     }
 
     private static void cancelEventRegistration() throws Exception {
-        int regId = InputHelper.readInt(scanner, "Enter Registration ID to cancel: ");
+        if (!displayEventRegistrationIds()) return;
+        int regId = InputHelper.readInt(scanner, "Enter Registration ID from the list above to cancel: ");
         boolean ok = eventService.cancelRegistration(regId);
         if (ok) {
             System.out.println("Registration #" + regId + " cancelled successfully. Spot released.");
@@ -845,39 +916,47 @@ public class Main {
 
     private static void displayAttractionList(List<TouristAttraction> list) {
         System.out.println("\n" + DIVIDER);
-        System.out.printf(" %-3s  %-34s  %-13s  %-10s  %-20s%n",
-                "ID", "NAME", "CATEGORY", "ENTRY FEE", "HOURS");
-        System.out.println(DIVIDER);
-        for (TouristAttraction a : list) {
-            String fee = a.getEntryFee().compareTo(BigDecimal.ZERO) == 0 ? "FREE" : "Rs. " + a.getEntryFee().intValue();
-            System.out.printf(" %-3d  %-34s  %-13s  %-10s  %-20s%n",
-                    a.getAttractionId(),
-                    truncate(a.getName(), 34),
-                    a.getCategory(),
-                    fee,
-                    truncate(a.getOpeningHours(), 20));
+        if (list.isEmpty()) {
+            System.out.println("No attractions matching your search.");
+            System.out.println(DIVIDER);
+            return;
         }
-        System.out.println(DIVIDER);
-        if (list.isEmpty()) System.out.println("No attractions matching your search.");
+
+        String[] headers = {"ID", "LANDMARK", "CATEGORY", "ENTRY FEE", "HOURS"};
+        List<String[]> rows = new ArrayList<>();
+        for (TouristAttraction a : list) {
+            rows.add(new String[]{
+                    String.valueOf(a.getAttractionId()),
+                    a.getName(),
+                    displayLabel(a.getCategory()),
+                    formatFee(a.getEntryFee()),
+                    a.getOpeningHours()
+            });
+        }
+        printTable(headers, rows, new int[]{2, 22, 14, 9, 20});
     }
 
     private static void viewAttractionGuide() throws SQLException {
-        int id = InputHelper.readInt(scanner, "Enter Attraction ID for Guide: ");
+        // Always show every available ID first, so the user knows what they can pick.
         List<TouristAttraction> list = guideService.getAllAttractions();
+        displayAttractionList(list);
+        if (list.isEmpty()) return;
+
+        int id = InputHelper.readInt(scanner, "\nEnter Attraction ID from the list above for the full guide: ");
         TouristAttraction target = list.stream().filter(a -> a.getAttractionId() == id).findFirst().orElse(null);
         if (target == null) {
-            System.out.println("Attraction not found.");
+            System.out.println("Attraction not found. Please choose an ID from the list above.");
             return;
         }
 
         System.out.println("\n" + DIVIDER);
-        System.out.println("                    DISTRICT TRAVEL GUIDE & TIPS");
+        System.out.println("                   TOWNTREK TRAVEL GUIDE & TIPS");
         System.out.println(DIVIDER);
         System.out.println(" Landmark Name: " + target.getName());
-        System.out.println(" Category     : " + target.getCategory());
+        System.out.println(" Category     : " + displayLabel(target.getCategory()));
         System.out.println(" Location     : " + target.getLocation());
         System.out.println(" Timings      : " + target.getOpeningHours());
-        System.out.println(" Entry Fee    : " + (target.getEntryFee().compareTo(BigDecimal.ZERO) == 0 ? "FREE ENTRY" : "Rs. " + target.getEntryFee()));
+        System.out.println(" Entry Fee    : " + (target.getEntryFee().compareTo(BigDecimal.ZERO) == 0 ? "FREE ENTRY" : "Rs. " + formatAmount(target.getEntryFee())));
         System.out.println(" Best Time    : " + target.getBestTimeToVisit());
         System.out.println(" Highlights   : " + target.getHighlights());
         System.out.println(DIVIDER);
@@ -933,28 +1012,37 @@ public class Main {
 
     private static void displaySpotList(List<CitySpot> list) {
         System.out.println("\n" + DIVIDER);
-        System.out.printf(" %-3s  %-32s  %-15s  %-6s  %-6s  %-20s%n",
-                "ID", "NAME", "TYPE", "PRICE", "RATING", "CUISINE / SPECIALTY");
-        System.out.println(DIVIDER);
-        for (CitySpot s : list) {
-            System.out.printf(" %-3d  %-32s  %-15s  %-6s  ★ %-4.1f  %-20s%n",
-                    s.getSpotId(),
-                    truncate(s.getName(), 32),
-                    s.getSpotType(),
-                    s.getPriceRange(),
-                    s.getRating(),
-                    truncate(s.getCuisineOrSpecialty(), 20));
+        if (list.isEmpty()) {
+            System.out.println("No matching establishments found.");
+            System.out.println(DIVIDER);
+            return;
         }
-        System.out.println(DIVIDER);
-        if (list.isEmpty()) System.out.println("No matching establishments found.");
+
+        String[] headers = {"ID", "NAME", "TYPE", "PRICE", "RATING", "CUISINE / SPECIALTY"};
+        List<String[]> rows = new ArrayList<>();
+        for (CitySpot s : list) {
+            rows.add(new String[]{
+                    String.valueOf(s.getSpotId()),
+                    s.getName(),
+                    displayLabel(s.getSpotType()),
+                    formatPriceRange(s.getPriceRange()),
+                    String.format("%.1f", s.getRating()),
+                    s.getCuisineOrSpecialty()
+            });
+        }
+        printTable(headers, rows, new int[]{2, 20, 13, 8, 6, 20});
     }
 
     private static void viewSpotDetails() throws SQLException {
-        int id = InputHelper.readInt(scanner, "Enter Spot ID for details: ");
+        // Always show every available ID first, so the user knows what they can pick.
         List<CitySpot> list = guideService.getAllSpots();
+        displaySpotList(list);
+        if (list.isEmpty()) return;
+
+        int id = InputHelper.readInt(scanner, "\nEnter Spot ID from the list above for details: ");
         CitySpot spot = list.stream().filter(s -> s.getSpotId() == id).findFirst().orElse(null);
         if (spot == null) {
-            System.out.println("Spot not found.");
+            System.out.println("Spot not found. Please choose an ID from the list above.");
             return;
         }
 
@@ -962,10 +1050,10 @@ public class Main {
         System.out.println("                      VENUE & DIRECTORY PROFILE");
         System.out.println(DIVIDER);
         System.out.println(" Name        : " + spot.getName());
-        System.out.println(" Category    : " + spot.getSpotType());
+        System.out.println(" Category    : " + displayLabel(spot.getSpotType()));
         System.out.println(" Specialty   : " + spot.getCuisineOrSpecialty());
-        System.out.println(" Price Range : " + spot.getPriceRange());
-        System.out.println(" Rating      : ★ " + spot.getRating() + " / 5.0");
+        System.out.println(" Price Range : " + formatPriceRange(spot.getPriceRange()));
+        System.out.println(" Rating      : " + spot.getRating() + " / 5.0");
         System.out.println(" Address     : " + spot.getAddress());
         System.out.println(" Timings     : " + spot.getTimings());
         System.out.println(" Phone       : " + spot.getContactNumber());
@@ -1015,14 +1103,14 @@ public class Main {
     }
 
     private static void displayEmergencyList(List<EmergencyService> list) {
+        int[] widths = {3, 33, 19, 16, 4};
         System.out.println("\n" + DIVIDER);
-        System.out.printf(" %-3s  %-40s  %-18s  %-15s  %-6s%n",
-                "ID", "ORGANIZATION / SERVICE", "CATEGORY", "HELPLINE / TEL", "24x7");
+        printTableRow(widths, "ID", "ORGANIZATION / SERVICE", "CATEGORY", "HELPLINE / TEL", "24x7");
         System.out.println(DIVIDER);
         for (EmergencyService e : list) {
-            System.out.printf(" %-3d  %-40s  %-18s  %-15s  %-6s%n",
-                    e.getServiceId(),
-                    truncate(e.getServiceName(), 40),
+            printTableRow(widths,
+                    String.valueOf(e.getServiceId()),
+                    e.getServiceName(),
                     e.getCategory(),
                     e.getPhoneNumber(),
                     e.is247() ? "YES" : "NO");
@@ -1039,7 +1127,7 @@ public class Main {
     private static void myPassesMenu() throws Exception {
         while (true) {
             System.out.println("\n" + DIVIDER);
-            System.out.println("                     MY DISTRICT PASSES & BOOKINGS");
+            System.out.println("                     MY TOWNTREK PASSES & BOOKINGS");
             System.out.println(DIVIDER);
             System.out.println("  1. View All My Bookings (Movies, Concerts & Events)");
             System.out.println("  2. View Movie Ticket Details");
@@ -1053,41 +1141,8 @@ public class Main {
             switch (choice) {
                 case 1 -> showAllUserBookings();
                 case 2 -> viewYourTicket();
-                case 3 -> {
-                    int id = InputHelper.readInt(scanner, "Enter Party Pass ID: ");
-                    PartyBooking pb = partyService.getBookingById(id);
-                    if (pb != null) {
-                        System.out.println("\n" + SUB_DIVIDER);
-                        System.out.println(" Pass ID     : " + pb.getBookingId());
-                        System.out.println(" Event       : " + pb.getEventTitle());
-                        System.out.println(" Artist      : " + pb.getArtistPerformer());
-                        System.out.println(" Venue       : " + pb.getVenue());
-                        System.out.println(" Date & Time : " + pb.getEventDate() + " at " + pb.getEventTime());
-                        System.out.println(" Tickets     : " + pb.getTicketsCount());
-                        System.out.println(" Total Paid  : Rs. " + pb.getTotalAmount());
-                        System.out.println(" Status      : " + pb.getBookingStatus());
-                        System.out.println(SUB_DIVIDER);
-                    } else {
-                        System.out.println("Party Pass not found.");
-                    }
-                }
-                case 4 -> {
-                    int id = InputHelper.readInt(scanner, "Enter Event Registration ID: ");
-                    EventRegistration er = eventService.getRegistrationById(id);
-                    if (er != null) {
-                        System.out.println("\n" + SUB_DIVIDER);
-                        System.out.println(" Reg ID      : " + er.getRegId());
-                        System.out.println(" Event       : " + er.getEventTitle());
-                        System.out.println(" Venue       : " + er.getVenue());
-                        System.out.println(" Date & Time : " + er.getEventDate() + " at " + er.getEventTime());
-                        System.out.println(" Attendees   : " + er.getAttendeeCount());
-                        System.out.println(" Fee Paid    : Rs. " + er.getTotalFee());
-                        System.out.println(" Status      : " + er.getStatus());
-                        System.out.println(SUB_DIVIDER);
-                    } else {
-                        System.out.println("Registration not found.");
-                    }
-                }
+                case 3 -> viewPartyPassDetails();
+                case 4 -> viewEventRegistrationDetails();
                 case 5 -> unifiedCancellationFlow();
                 case 0 -> { return; }
                 default -> System.out.println("Invalid choice. Select 0-5.");
@@ -1095,46 +1150,184 @@ public class Main {
         }
     }
 
+    private static void viewPartyPassDetails() throws SQLException {
+        if (!displayPartyBookingIds()) return;
+        int id = InputHelper.readInt(scanner, "Enter Party Pass ID from the list above: ");
+        PartyBooking pb = partyService.getBookingById(id);
+        if (pb == null) {
+            System.out.println("Party Pass not found.");
+            return;
+        }
+        System.out.println("\n" + SUB_DIVIDER);
+        System.out.println(" Pass ID     : " + pb.getBookingId());
+        System.out.println(" Event       : " + pb.getEventTitle());
+        System.out.println(" Artist      : " + pb.getArtistPerformer());
+        System.out.println(" Venue       : " + pb.getVenue());
+        System.out.println(" Date & Time : " + pb.getEventDate() + " at " + formatTime(pb.getEventTime()));
+        System.out.println(" Tickets     : " + pb.getTicketsCount());
+        System.out.println(" Total Paid  : Rs. " + pb.getTotalAmount());
+        System.out.println(" Status      : " + pb.getBookingStatus());
+        System.out.println(SUB_DIVIDER);
+    }
+
+    private static void viewEventRegistrationDetails() throws SQLException {
+        if (!displayEventRegistrationIds()) return;
+        int id = InputHelper.readInt(scanner, "Enter Event Registration ID from the list above: ");
+        EventRegistration er = eventService.getRegistrationById(id);
+        if (er == null) {
+            System.out.println("Registration not found.");
+            return;
+        }
+        System.out.println("\n" + SUB_DIVIDER);
+        System.out.println(" Reg ID      : " + er.getRegId());
+        System.out.println(" Event       : " + er.getEventTitle());
+        System.out.println(" Venue       : " + er.getVenue());
+        System.out.println(" Date & Time : " + er.getEventDate() + " at " + formatTime(er.getEventTime()));
+        System.out.println(" Attendees   : " + er.getAttendeeCount());
+        System.out.println(" Fee Paid    : Rs. " + er.getTotalFee());
+        System.out.println(" Status      : " + er.getStatus());
+        System.out.println(SUB_DIVIDER);
+    }
+
+    // ====================================================================
+    // BOOKING-ID LOOKUPS (always show existing IDs before prompting)
+    // ====================================================================
+
+    private static boolean displayMovieBookingIds() throws SQLException {
+        List<MovieBookingDetail> list = unifiedBookingService.getMovieBookings(currentUserName);
+        int[] widths = {4, 28, 16, 16, 11};
+        System.out.println("\n" + DIVIDER);
+        System.out.println("                       YOUR MOVIE BOOKINGS");
+        System.out.println(DIVIDER);
+        printTableRow(widths, "ID", "MOVIE", "DATE & TIME", "SEATS", "STATUS");
+        System.out.println(DIVIDER);
+        if (list.isEmpty()) {
+            System.out.println("  No movie bookings found under " + currentUserName + ".");
+            System.out.println(DIVIDER);
+            return false;
+        }
+        for (MovieBookingDetail m : list) {
+            printTableRow(widths,
+                    "#" + m.getBookingId(),
+                    m.getMovieName(),
+                    m.getShowDate() + " " + formatTime(m.getShowTime()),
+                    m.getSeatCodes(),
+                    m.getBookingStatus());
+        }
+        System.out.println(DIVIDER);
+        return true;
+    }
+
+    private static boolean displayPartyBookingIds() throws SQLException {
+        List<PartyBooking> list = unifiedBookingService.getPartyBookings(currentUserEmail);
+        int[] widths = {4, 28, 16, 16, 11};
+        System.out.println("\n" + DIVIDER);
+        System.out.println("                    YOUR CONCERT & PARTY PASSES");
+        System.out.println(DIVIDER);
+        printTableRow(widths, "ID", "EVENT", "DATE & TIME", "PASSES", "STATUS");
+        System.out.println(DIVIDER);
+        if (list.isEmpty()) {
+            System.out.println("  No party passes found under " + currentUserEmail + ".");
+            System.out.println(DIVIDER);
+            return false;
+        }
+        for (PartyBooking p : list) {
+            printTableRow(widths,
+                    "#" + p.getBookingId(),
+                    p.getEventTitle(),
+                    p.getEventDate() + " " + formatTime(p.getEventTime()),
+                    String.valueOf(p.getTicketsCount()),
+                    p.getBookingStatus());
+        }
+        System.out.println(DIVIDER);
+        return true;
+    }
+
+    private static boolean displayEventRegistrationIds() throws SQLException {
+        List<EventRegistration> list = unifiedBookingService.getEventRegistrations(currentUserEmail);
+        int[] widths = {4, 28, 16, 16, 11};
+        System.out.println("\n" + DIVIDER);
+        System.out.println("                    YOUR EVENT REGISTRATIONS");
+        System.out.println(DIVIDER);
+        printTableRow(widths, "ID", "EVENT", "DATE & TIME", "SPOTS", "STATUS");
+        System.out.println(DIVIDER);
+        if (list.isEmpty()) {
+            System.out.println("  No event registrations found under " + currentUserEmail + ".");
+            System.out.println(DIVIDER);
+            return false;
+        }
+        for (EventRegistration e : list) {
+            printTableRow(widths,
+                    "#" + e.getRegId(),
+                    e.getEventTitle(),
+                    e.getEventDate() + " " + formatTime(e.getEventTime()),
+                    String.valueOf(e.getAttendeeCount()),
+                    e.getStatus());
+        }
+        System.out.println(DIVIDER);
+        return true;
+    }
+
     private static void showAllUserBookings() throws SQLException {
+        int[] widths = {4, 22, 16, 12, 10, 9};
+
         System.out.println("\n" + DIVIDER);
         System.out.println("                        [A] MOVIE BOOKINGS");
+        System.out.println(DIVIDER);
+        printTableRow(widths, "ID", "MOVIE", "DATE & TIME", "SEATS", "AMOUNT", "STATUS");
         System.out.println(DIVIDER);
         List<MovieBookingDetail> movies = unifiedBookingService.getMovieBookings(currentUserName);
         if (movies.isEmpty()) {
             System.out.println("  No movie bookings recorded under " + currentUserName);
         } else {
             for (MovieBookingDetail m : movies) {
-                System.out.printf("  #%-4d | %-24s | %s %s | Seats: %-8s | Rs.%-6.0f | %s%n",
-                        m.getBookingId(), m.getMovieName(), m.getShowDate(), m.getShowTime(),
-                        m.getSeatCodes(), m.getTotalAmount(), m.getBookingStatus());
+                printTableRow(widths,
+                        "#" + m.getBookingId(),
+                        m.getMovieName(),
+                        m.getShowDate() + " " + formatTime(m.getShowTime()),
+                        m.getSeatCodes(),
+                        "Rs." + m.getTotalAmount().intValue(),
+                        m.getBookingStatus());
             }
         }
 
         System.out.println("\n" + DIVIDER);
         System.out.println("                    [B] CONCERTS & PARTY PASSES");
         System.out.println(DIVIDER);
+        printTableRow(widths, "ID", "EVENT", "DATE & TIME", "PASSES", "AMOUNT", "STATUS");
+        System.out.println(DIVIDER);
         List<PartyBooking> parties = unifiedBookingService.getPartyBookings(currentUserEmail);
         if (parties.isEmpty()) {
             System.out.println("  No party passes recorded under " + currentUserEmail);
         } else {
             for (PartyBooking p : parties) {
-                System.out.printf("  #%-4d | %-24s | %s %s | Passes: %-2d | Rs.%-6.0f | %s%n",
-                        p.getBookingId(), p.getEventTitle(), p.getEventDate(), p.getEventTime(),
-                        p.getTicketsCount(), p.getTotalAmount(), p.getBookingStatus());
+                printTableRow(widths,
+                        "#" + p.getBookingId(),
+                        p.getEventTitle(),
+                        p.getEventDate() + " " + formatTime(p.getEventTime()),
+                        String.valueOf(p.getTicketsCount()),
+                        "Rs." + p.getTotalAmount().intValue(),
+                        p.getBookingStatus());
             }
         }
 
         System.out.println("\n" + DIVIDER);
-        System.out.println("                    [C] DISTRICT EVENT REGISTRATIONS");
+        System.out.println("                    [C] TOWNTREK EVENT REGISTRATIONS");
+        System.out.println(DIVIDER);
+        printTableRow(widths, "ID", "EVENT", "DATE & TIME", "SPOTS", "AMOUNT", "STATUS");
         System.out.println(DIVIDER);
         List<EventRegistration> events = unifiedBookingService.getEventRegistrations(currentUserEmail);
         if (events.isEmpty()) {
             System.out.println("  No event registrations recorded under " + currentUserEmail);
         } else {
             for (EventRegistration e : events) {
-                System.out.printf("  #%-4d | %-24s | %s %s | Spots: %-2d | Rs.%-6.0f | %s%n",
-                        e.getRegId(), e.getEventTitle(), e.getEventDate(), e.getEventTime(),
-                        e.getAttendeeCount(), e.getTotalFee(), e.getStatus());
+                printTableRow(widths,
+                        "#" + e.getRegId(),
+                        e.getEventTitle(),
+                        e.getEventDate() + " " + formatTime(e.getEventTime()),
+                        String.valueOf(e.getAttendeeCount()),
+                        "Rs." + e.getTotalFee().intValue(),
+                        e.getStatus());
             }
         }
         System.out.println(DIVIDER);
@@ -1146,7 +1339,19 @@ public class Main {
         System.out.println("  2. Concert / Party Pass");
         System.out.println("  3. Event Registration");
         int type = InputHelper.readInt(scanner, "Choose (1-3): ");
-        int id = InputHelper.readInt(scanner, "Enter Booking / Pass ID: ");
+
+        boolean hasBookings = switch (type) {
+            case 1 -> displayMovieBookingIds();
+            case 2 -> displayPartyBookingIds();
+            case 3 -> displayEventRegistrationIds();
+            default -> {
+                System.out.println("Invalid selection.");
+                yield false;
+            }
+        };
+        if (!hasBookings) return;
+
+        int id = InputHelper.readInt(scanner, "Enter Booking / Pass ID from the list above: ");
 
         switch (type) {
             case 1 -> {
@@ -1161,7 +1366,6 @@ public class Main {
                 boolean ok = unifiedBookingService.cancelEventRegistration(id);
                 System.out.println(ok ? "Event registration cancelled and spots updated." : "Failed to cancel registration.");
             }
-            default -> System.out.println("Invalid selection.");
         }
     }
 
@@ -1187,7 +1391,7 @@ public class Main {
             System.out.println("  No matching landmarks found.");
         } else {
             for (TouristAttraction a : attractions) {
-                System.out.printf("  • %s (%s) - %s%n", a.getName(), a.getCategory(), a.getLocation());
+                System.out.printf("  - %s (%s) - %s%n", a.getName(), displayLabel(a.getCategory()), a.getLocation());
             }
         }
 
@@ -1197,8 +1401,8 @@ public class Main {
             System.out.println("  No matching food or shopping spots found.");
         } else {
             for (CitySpot s : spots) {
-                System.out.printf("  • %s [%s] - %s | %s (Rating: ★ %.1f)%n",
-                        s.getName(), s.getSpotType(), s.getCuisineOrSpecialty(), s.getAddress(), s.getRating());
+                System.out.printf("  - %s [%s] - %s | %s (Rating: %.1f)%n",
+                        s.getName(), displayLabel(s.getSpotType()), s.getCuisineOrSpecialty(), s.getAddress(), s.getRating());
             }
         }
 
@@ -1212,7 +1416,7 @@ public class Main {
             System.out.println("  No matching concert or party found.");
         } else {
             for (PartyConcert p : parties) {
-                System.out.printf("  • %s featuring %s @ %s (Rs. %.0f)%n",
+                System.out.printf("  - %s featuring %s @ %s (Rs. %.0f)%n",
                         p.getTitle(), p.getArtistPerformer(), p.getVenue(), p.getTicketPrice());
             }
         }
@@ -1220,12 +1424,256 @@ public class Main {
     }
 
     // ====================================================================
-    // STRING HELPER
+    // SHARED SELECTION HELPERS
     // ====================================================================
+
+    private static String selectTopic(String heading, String[] labels, String[] codes) {
+        System.out.println("\n" + SUB_DIVIDER);
+        System.out.println("                 " + heading);
+        System.out.println(SUB_DIVIDER);
+        for (int i = 0; i < labels.length; i++) {
+            System.out.println("  " + (i + 1) + ". " + labels[i]);
+        }
+        System.out.println(SUB_DIVIDER);
+
+        int choice = InputHelper.readInt(scanner, "Choose topic (1-" + labels.length + "): ");
+        if (choice < 1 || choice > labels.length) {
+            System.out.println("Invalid topic selection.");
+            return null;
+        }
+        return codes[choice - 1];
+    }
+
+    // ====================================================================
+    // STRING HELPERS
+    // ====================================================================
+
+    private static String formatTime(LocalTime time) {
+        return time == null ? "--:--" : String.format("%02d:%02d", time.getHour(), time.getMinute());
+    }
+
+    /**
+     * Prints one table row using fixed column widths so every row lines up with
+     * the 84-character DIVIDER. Cells are truncated or padded to their column.
+     */
+    private static void printTableRow(int[] widths, String... cells) {
+        StringBuilder line = new StringBuilder(" ");
+        for (int i = 0; i < widths.length; i++) {
+            if (i > 0) line.append("  ");
+            String cell = i < cells.length && cells[i] != null ? cells[i] : "";
+            line.append(padRight(truncate(cell, widths[i]), widths[i]));
+        }
+        System.out.println(line);
+    }
+
+    private static String padRight(String text, int width) {
+        if (text.length() >= width) return text.substring(0, width);
+        return text + " ".repeat(width - text.length());
+    }
 
     private static String truncate(String text, int max) {
         if (text == null) return "";
         if (text.length() <= max) return text;
         return text.substring(0, max - 3) + "...";
+    }
+
+    /**
+     * Prints a complete table that always fits inside the 84-character DIVIDER.
+     * <p>
+     * Column widths are derived from the actual data instead of being hard-coded,
+     * and long values wrap onto extra lines instead of being cut off. This keeps
+     * every row aligned and guarantees that no database value is silently lost.
+     *
+     * @param minWidths preferred minimum width per column (header length is always respected)
+     */
+    private static void printTable(String[] headers, List<String[]> rows, int[] minWidths) {
+        int columns = headers.length;
+        int[] natural = new int[columns];
+        for (int i = 0; i < columns; i++) {
+            natural[i] = Math.max(headers[i].length(), 1);
+        }
+        for (String[] row : rows) {
+            for (int i = 0; i < columns; i++) {
+                String cell = i < row.length && row[i] != null ? row[i] : "";
+                natural[i] = Math.max(natural[i], longestLine(cell));
+            }
+        }
+
+        // Printable width available between the divider margins.
+        int budget = DIVIDER.length() - 1 - 2 * (columns - 1);
+
+        int[] widths = new int[columns];
+        for (int i = 0; i < columns; i++) {
+            widths[i] = Math.min(natural[i], Math.max(minWidths[i], headers[i].length()));
+        }
+
+        int remaining = budget - Arrays.stream(widths).sum();
+        if (remaining > 0) {
+            // Share the spare width between columns that still have content to show.
+            int desire = 0;
+            for (int i = 0; i < columns; i++) desire += natural[i] - widths[i];
+            if (desire > 0) {
+                for (int i = 0; i < columns; i++) {
+                    int grow = (int) ((long) remaining * (natural[i] - widths[i]) / desire);
+                    widths[i] += Math.min(grow, natural[i] - widths[i]);
+                }
+            }
+            remaining = budget - Arrays.stream(widths).sum();
+            while (remaining > 0) {
+                boolean grew = false;
+                for (int i = 0; i < columns && remaining > 0; i++) {
+                    if (widths[i] < natural[i]) {
+                        widths[i]++;
+                        remaining--;
+                        grew = true;
+                    }
+                }
+                if (!grew) break;
+            }
+        } else if (remaining < 0) {
+            // Extremely long values: shrink the widest columns until the table fits.
+            while (Arrays.stream(widths).sum() > budget) {
+                int widest = -1;
+                for (int i = 0; i < columns; i++) {
+                    if (widths[i] > headers[i].length() && (widest == -1 || widths[i] > widths[widest])) {
+                        widest = i;
+                    }
+                }
+                if (widest == -1) break;
+                widths[widest]--;
+            }
+        }
+
+        int totalWidth = 1;
+        for (int i = 0; i < columns; i++) {
+            totalWidth += widths[i] + (i > 0 ? 2 : 0);
+        }
+        String rule = "_".repeat(totalWidth);
+
+        System.out.println(rule);
+        printTableLine(widths, headers);
+        System.out.println(rule);
+        for (String[] row : rows) {
+            List<List<String>> wrappedCells = new ArrayList<>();
+            int height = 1;
+            for (int i = 0; i < columns; i++) {
+                String cell = i < row.length && row[i] != null ? row[i] : "";
+                List<String> lines = wrapCell(cell, widths[i]);
+                wrappedCells.add(lines);
+                height = Math.max(height, lines.size());
+            }
+            for (int lineNo = 0; lineNo < height; lineNo++) {
+                String[] lineCells = new String[columns];
+                for (int i = 0; i < columns; i++) {
+                    List<String> lines = wrappedCells.get(i);
+                    lineCells[i] = lineNo < lines.size() ? lines.get(lineNo) : "";
+                }
+                printTableLine(widths, lineCells);
+            }
+        }
+        System.out.println(rule);
+    }
+
+    /** Prints one already-wrapped table line, padding every cell to its column width. */
+    private static void printTableLine(int[] widths, String... cells) {
+        StringBuilder line = new StringBuilder(" ");
+        for (int i = 0; i < widths.length; i++) {
+            if (i > 0) line.append("  ");
+            String cell = i < cells.length && cells[i] != null ? cells[i] : "";
+            line.append(padRight(cell, widths[i]));
+        }
+        System.out.println(line);
+    }
+
+    /** Breaks a cell value on word boundaries so it fits the given column width. */
+    private static List<String> wrapCell(String text, int width) {
+        List<String> lines = new ArrayList<>();
+        if (text == null || text.isBlank()) {
+            lines.add("");
+            return lines;
+        }
+        for (String paragraph : text.split("\\R")) {
+            String remaining = paragraph.trim();
+            if (remaining.isEmpty()) {
+                lines.add("");
+                continue;
+            }
+            while (remaining.length() > width) {
+                int breakAt = remaining.lastIndexOf(' ', width);
+                if (breakAt <= 0) breakAt = width;
+                lines.add(remaining.substring(0, breakAt).stripTrailing());
+                remaining = remaining.substring(breakAt).stripLeading();
+            }
+            lines.add(remaining);
+        }
+        return lines;
+    }
+
+    /** Longest physical line of a (possibly multi-line) cell value. */
+    private static int longestLine(String text) {
+        if (text == null) return 0;
+        int longest = 0;
+        for (String part : text.split("\\R")) {
+            longest = Math.max(longest, part.length());
+        }
+        return longest;
+    }
+
+    /** Turns database enum codes such as NATURE_BEACH into readable labels. */
+    private static String displayLabel(String rawValue) {
+        if (rawValue == null || rawValue.isBlank()) return "-";
+        return switch (rawValue.trim().toUpperCase(Locale.ROOT)) {
+            case "HERITAGE" -> "Heritage";
+            case "NATURE_BEACH" -> "Nature & Beach";
+            case "MUSEUM" -> "Museum";
+            case "PARK" -> "Park";
+            case "RESTAURANT" -> "Fine Dine";
+            case "CAFE" -> "Cafe";
+            case "SHOPPING_MALL" -> "Shopping Mall";
+            case "STREET_FOOD_HUB" -> "Street Food";
+            case "LOCAL_BAZAAR" -> "Bazaar";
+            default -> titleCaseWords(rawValue);
+        };
+    }
+
+    private static String titleCaseWords(String value) {
+        StringBuilder out = new StringBuilder();
+        for (String word : value.trim().split("[_\\s]+")) {
+            if (word.isEmpty()) continue;
+            if (out.length() > 0) out.append(' ');
+            out.append(Character.toUpperCase(word.charAt(0)))
+                    .append(word.substring(1).toLowerCase(Locale.ROOT));
+        }
+        return out.length() == 0 ? "-" : out.toString();
+    }
+
+    private static String formatFee(BigDecimal amount) {
+        if (amount == null) return "N/A";
+        return amount.compareTo(BigDecimal.ZERO) == 0 ? "FREE" : "Rs." + formatAmount(amount);
+    }
+
+    /** Prints amounts without floating-point noise or truncated decimals. */
+    private static String formatAmount(BigDecimal amount) {
+        if (amount == null) return "-";
+        BigDecimal stripped = amount.stripTrailingZeros();
+        return stripped.scale() <= 0 ? stripped.toBigInteger().toString() : stripped.toPlainString();
+    }
+
+    /**
+     * Price ranges are stored as repeated rupee symbols (₹, ₹₹, ₹₹₹, ₹₹₹₹).
+     * They are shown as readable price bands, because expanding every symbol to
+     * "Rs." produced broken values such as "Rs.Rs.R..." in the old tables.
+     */
+    private static String formatPriceRange(String priceRange) {
+        if (priceRange == null || priceRange.isBlank()) return "Not listed";
+        String compact = priceRange.replace("?", "₹").replace("Rs.", "₹").replace(" ", "").trim();
+        if (!compact.matches("₹+")) return priceRange;
+        return switch (compact.length()) {
+            case 1 -> "Budget";
+            case 2 -> "Moderate";
+            case 3 -> "Premium";
+            case 4 -> "Luxury";
+            default -> priceRange;
+        };
     }
 }

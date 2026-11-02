@@ -10,7 +10,7 @@ import com.moviebooking.model.TouristAttraction;
 import java.sql.SQLException;
 import java.util.List;
 
-public class DistrictGuideService {
+public class TownTrekGuideService {
     private final TouristAttractionDAO attractionDAO = new TouristAttractionDAO();
     private final CitySpotDAO spotDAO = new CitySpotDAO();
     private final EmergencyServiceDAO emergencyDAO = new EmergencyServiceDAO();

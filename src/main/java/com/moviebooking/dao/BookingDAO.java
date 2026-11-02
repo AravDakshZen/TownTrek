@@ -145,7 +145,7 @@ try (PreparedStatement ps = con.prepareStatement(selectSql)) {
             JOIN shows s ON b.show_id = s.show_id
             JOIN theatres t ON s.theatre_id = t.theatre_id
             WHERE b.customer_name = ?
-            ORDER BY b.booking_id DESC
+            ORDER BY b.booking_id ASC
             """;
         List<com.moviebooking.model.MovieBookingDetail> list = new ArrayList<>();
         try (Connection con = DBConnection.getConnection();

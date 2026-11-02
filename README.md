@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <p align="center">
   <img src="assets/towntrek-hero.png" alt="TownTrek: Unified Urban Exploration & Booking Platform" width="100%" />
 </p>
@@ -30,6 +31,11 @@
   <a href="#-quick-start-guide"><img alt="Quickstart" src="https://img.shields.io/badge/Quickstart-3%20Steps-2EA043?style=for-the-badge&logo=powershell&logoColor=white" /></a>
   <a href="https://github.com/AravDakshZen/TownTrek/issues"><img alt="PRs Welcome" src="https://img.shields.io/badge/PRs-Welcome-brightgreen?style=for-the-badge" /></a>
 </p>
+=======
+# TownTrek - City Console Application
+
+**TownTrek** is an all-in-one console-based city exploration and booking application developed using **Java 17, JDBC, MySQL 8, and Maven**. It serves as a unified digital TownTrek companion for city dwellers, tourists, and newcomers to explore entertainment, events, landmarks, dining, and essential emergency services.
+>>>>>>> 86ed478 (Add TownTrek full-stack web application)
 
 ---
 
@@ -37,6 +43,7 @@
 
 **TownTrek** is an enterprise-grade, console-native urban exploration and booking platform crafted in modern **Java 17**. Built specifically for city dwellers, travelers, newcomers, and urban explorers, TownTrek unifies previously fragmented city services into one seamless, blazingly fast digital companion.
 
+<<<<<<< HEAD
 Traditional urban apps force users to juggle separate platforms for cinema tickets, nightlife gigs, community workshops, tourist sightseeing, restaurant reservations, and emergency assistance. **TownTrek solves this fragmentation** by providing a single, coherent ecosystem backed by robust relational data models, ACID-compliant transactions, and a clean, responsive terminal interface.
 
 ### Key Architectural Strengths
@@ -46,6 +53,37 @@ Traditional urban apps force users to juggle separate platforms for cinema ticke
 - 🔒 **Cryptographic Security by Design**: Passwords are never stored in plaintext; user authentication leverages CSPRNG salt generation combined with SHA-256 cryptographic hashing.
 - 🗄️ **Relational Integrity Across 13 Normalized Tables**: Structured schema enforcing foreign key cascades, unique seating constraints, and automated audit timestamps.
 - 🎛️ **Resilient Configuration Architecture**: 3-tier fallback engine supporting OS environment variables, local `.properties` files, and zero-configuration development defaults.
+=======
+2. **Parties, Concerts & Comedy Nights**:
+   - Discover live gigs, EDM festivals, rooftop DJ parties, and standup comedy specials.
+   - Choose a topic, then browse the available events for that topic before booking.
+   - View artist profiles, ticket prices, and live slot capacity.
+   - Book multi-pass tickets with digital booking IDs.
+
+3. **TownTrek Events & Workshops**:
+   - Community workshops (pottery, AI/tech, urban farming).
+   - Food carnivals, street fests, marathons, and cultural dance galas.
+   - Topic-first registration: choose a topic, view the available events in it, then RSVP for individuals or groups.
+
+4. **Tourist Attractions & City Landmarks**:
+   - Heritage forts, Gothic basilicas, clock towers, coastal beaches, museums, and botanical parks.
+   - Comprehensive visiting guide with opening hours, entry fees, highlights, and best visiting times.
+
+5. **Dining & Shopping Centres**:
+   - Curated directory of restaurants, cafes, shopping malls, street food streets, and heritage bazaars.
+   - Details: price band (Budget / Moderate / Premium / Luxury), ratings (4.4 to 4.8), address, timings, and contact numbers.
+
+6. **Essential Public Services & Emergency Contacts**:
+   - 24/7 rapid dispatch helplines (112, 100, 108, 1091, 1098).
+   - Hospital trauma centers, police stations, fire rescue squads, and municipal civic services.
+
+7. **My TownTrek Passes & Unified Booking Management**:
+   - Centralized dashboard displaying all active and past bookings across movies, concerts, and events.
+   - Unified cancellation portal that restores seat/capacity slots immediately.
+
+8. **City Quick Search**:
+   - Search across landmarks, food spots, events, and movies using any keyword.
+>>>>>>> 86ed478 (Add TownTrek full-stack web application)
 
 ---
 
@@ -380,10 +418,17 @@ TownTrek features a modern, polished command-line aesthetic designed to elevate 
 
 ```text
 ____________________________________________________________________________________
+<<<<<<< HEAD
                                 TOWNTREK MAIN HUB
 ____________________________________________________________________________________
  Active User : Aravindh Murugesh (arav@district.com)
  Location    : Metropolitan Central Hub
+=======
+                                TOWNTREK HUB
+____________________________________________________________________________________
+ Active User : Aravindh Murugesh (arav@towntrek.com)
+ City        : Metropolitan Central City
+>>>>>>> 86ed478 (Add TownTrek full-stack web application)
 ____________________________________________________________________________________
   1. Movies & Cinema             Browse movies, cinemas, seat maps & book tickets
   2. Parties & Live Concerts     Discover DJ nights, music fests & comedy shows
@@ -435,6 +480,7 @@ ________________________________________________________________________________
 
 ## 🚀 Quick Start Guide
 
+<<<<<<< HEAD
 Get TownTrek up and running in **under 2 minutes** with these simple steps.
 
 ### Prerequisites
@@ -464,6 +510,20 @@ mysql -u root -p < database/migration_district_towntrek.sql
 > - Establishes all 13 relational tables with primary keys, indexes, and foreign keys.
 > - Seeds rich realistic records across all categories (theatres, films, shows, concerts, workshops, landmarks, restaurants, and emergency contacts).
 > - Creates default test accounts with salted hashes ready for immediate login.
+=======
+### One-Step Migration
+Run the complete migration script located at `database/migration_towntrek.sql` in MySQL Workbench or via terminal:
+
+```bash
+mysql -u root -p < database/migration_towntrek.sql
+```
+
+This single script:
+- Creates the `movie_booking_db` database if not present.
+- Sets up all 13 relational tables (users, theatres, movies, shows, seats, bookings, parties_concerts, party_bookings, towntrek_events, event_registrations, tourist_attractions, city_spots, emergency_services).
+- Seeds **at least 3 realistic records per category** across all domains.
+- Adds test accounts (e.g. `arav@towntrek.com` with password `password123`).
+>>>>>>> 86ed478 (Add TownTrek full-stack web application)
 
 ---
 

@@ -16,7 +16,7 @@ public class EmergencyServiceDAO {
         String sql = """
             SELECT service_id, service_name, category, phone_number, alternate_number, address, is_24_7, notes
             FROM emergency_services
-            ORDER BY category, service_name
+            ORDER BY service_id ASC
             """;
         List<EmergencyService> list = new ArrayList<>();
         try (Connection con = DBConnection.getConnection();
@@ -34,7 +34,7 @@ public class EmergencyServiceDAO {
             SELECT service_id, service_name, category, phone_number, alternate_number, address, is_24_7, notes
             FROM emergency_services
             WHERE category = ?
-            ORDER BY service_name
+            ORDER BY service_id ASC
             """;
         List<EmergencyService> list = new ArrayList<>();
         try (Connection con = DBConnection.getConnection();

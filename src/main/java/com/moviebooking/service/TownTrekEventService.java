@@ -1,24 +1,24 @@
 package com.moviebooking.service;
 
-import com.moviebooking.dao.DistrictEventDAO;
-import com.moviebooking.model.DistrictEvent;
+import com.moviebooking.dao.TownTrekEventDAO;
+import com.moviebooking.model.TownTrekEvent;
 import com.moviebooking.model.EventRegistration;
 
 import java.sql.SQLException;
 import java.util.List;
 
-public class DistrictEventService {
-    private final DistrictEventDAO dao = new DistrictEventDAO();
+public class TownTrekEventService {
+    private final TownTrekEventDAO dao = new TownTrekEventDAO();
 
-    public List<DistrictEvent> getAllEvents() throws SQLException {
+    public List<TownTrekEvent> getAllEvents() throws SQLException {
         return dao.findAll();
     }
 
-    public List<DistrictEvent> getEventsByCategory(String category) throws SQLException {
+    public List<TownTrekEvent> getEventsByCategory(String category) throws SQLException {
         return dao.findByCategory(category);
     }
 
-    public DistrictEvent getEventById(int eventId) throws SQLException {
+    public TownTrekEvent getEventById(int eventId) throws SQLException {
         return dao.findById(eventId);
     }
 

@@ -1,12 +1,30 @@
 -- ====================================================================
--- TOWNTREK DISTRICT CONSOLE APPLICATION - COMPLETE DATABASE MIGRATION
+-- TOWNTREK CONSOLE APPLICATION - COMPLETE DATABASE MIGRATION
 -- Run this script in MySQL Workbench or via MySQL CLI:
--- mysql -u root -p < migration_district_towntrek.sql
+-- mysql -u root -p < migration_towntrek.sql
 -- ====================================================================
 
 
 CREATE DATABASE IF NOT EXISTS movie_booking_db;
 USE movie_booking_db;
+
+-- Backward compatibility: rename the legacy event table from older versions
+SET @legacy_events_exists := (
+    SELECT COUNT(*) FROM information_schema.tables
+    WHERE table_schema = DATABASE() AND table_name = 'district_events'
+);
+SET @current_events_exists := (
+    SELECT COUNT(*) FROM information_schema.tables
+    WHERE table_schema = DATABASE() AND table_name = 'towntrek_events'
+);
+SET @rename_events_sql := IF(
+    @legacy_events_exists > 0 AND @current_events_exists = 0,
+    'RENAME TABLE district_events TO towntrek_events',
+    'SELECT 1'
+);
+PREPARE rename_events_stmt FROM @rename_events_sql;
+EXECUTE rename_events_stmt;
+DEALLOCATE PREPARE rename_events_stmt;
 
 -- 1. USERS TABLE (Authentication with Salt + Hash)
 CREATE TABLE IF NOT EXISTS users (
@@ -102,8 +120,8 @@ CREATE TABLE IF NOT EXISTS party_bookings (
     FOREIGN KEY (event_id) REFERENCES parties_concerts(event_id) ON DELETE CASCADE
 );
 
--- 9. DISTRICT EVENTS & WORKSHOPS TABLE
-CREATE TABLE IF NOT EXISTS district_events (
+-- 9. TOWNTREK EVENTS & WORKSHOPS TABLE
+CREATE TABLE IF NOT EXISTS towntrek_events (
     event_id INT AUTO_INCREMENT PRIMARY KEY,
     title VARCHAR(150) NOT NULL,
     category ENUM('WORKSHOP', 'FOOD_FEST', 'SPORTS', 'CULTURAL') NOT NULL,
@@ -117,7 +135,7 @@ CREATE TABLE IF NOT EXISTS district_events (
     description TEXT
 );
 
--- 10. DISTRICT EVENT REGISTRATIONS TABLE
+-- 10. TOWNTREK EVENT REGISTRATIONS TABLE
 CREATE TABLE IF NOT EXISTS event_registrations (
     reg_id INT AUTO_INCREMENT PRIMARY KEY,
     customer_name VARCHAR(100) NOT NULL,
@@ -127,7 +145,7 @@ CREATE TABLE IF NOT EXISTS event_registrations (
     total_fee DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     status ENUM('CONFIRMED', 'CANCELLED') DEFAULT 'CONFIRMED',
     reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (event_id) REFERENCES district_events(event_id) ON DELETE CASCADE
+    FOREIGN KEY (event_id) REFERENCES towntrek_events(event_id) ON DELETE CASCADE
 );
 
 -- 11. TOURIST ATTRACTIONS & LANDMARKS TABLE
@@ -148,7 +166,7 @@ CREATE TABLE IF NOT EXISTS city_spots (
     name VARCHAR(150) NOT NULL,
     spot_type ENUM('RESTAURANT', 'CAFE', 'SHOPPING_MALL', 'STREET_FOOD_HUB', 'LOCAL_BAZAAR') NOT NULL,
     cuisine_or_specialty VARCHAR(120) NOT NULL,
-    price_range ENUM('₹', '₹₹', '₹₹₹', '₹₹₹₹') NOT NULL,
+    price_range VARCHAR(20) NOT NULL,
     address VARCHAR(200) NOT NULL,
     rating DECIMAL(2,1) NOT NULL,
     contact_number VARCHAR(30) NOT NULL,
@@ -240,7 +258,7 @@ UPDATE seats SET seat_status = 'BOOKED' WHERE show_id = 2 AND seat_code IN ('A2'
 INSERT INTO parties_concerts
 (event_id, title, category, artist_performer, venue, location, event_date, event_time, ticket_price, total_capacity, available_slots, description) VALUES
 -- Category: CONCERT (3 records)
-(1, 'Acoustic Symphony Live', 'CONCERT', 'Arijit Singh & Philharmonic Orchestra', 'District Open Air Amphitheatre', 'Eco Park Boulevard', DATE_ADD(CURDATE(), INTERVAL 5 DAY), '19:00:00', 1499.00, 2500, 1850, 'A magical 3-hour live acoustic and symphonic experience under the stars with chart-topping ballads.'),
+(1, 'Acoustic Symphony Live', 'CONCERT', 'Arijit Singh & Philharmonic Orchestra', 'TownTrek Open Air Amphitheatre', 'Eco Park Boulevard', DATE_ADD(CURDATE(), INTERVAL 5 DAY), '19:00:00', 1499.00, 2500, 1850, 'A magical 3-hour live acoustic and symphonic experience under the stars with chart-topping ballads.'),
 (2, 'Neon Horizon Electronic Festival', 'CONCERT', 'DJ Nucleya & Sunburn Collective', 'Marina Grand Arena', 'Seaside Road', DATE_ADD(CURDATE(), INTERVAL 8 DAY), '18:30:00', 999.00, 3000, 2400, 'High-octane bass drops, lasers, and immersive pyrotechnics featuring premier electronic artists.'),
 (3, 'Rock Revival: Retro Titans Tour', 'CONCERT', 'The Local Train Tribute & Thermal Project', 'Phoenix Live Arena', 'Downtown Midtown', DATE_ADD(CURDATE(), INTERVAL 12 DAY), '20:00:00', 799.00, 1500, 1120, 'Pure indie rock, soul-stirring guitars, and anthems celebrating classic indie hits.'),
 
@@ -250,13 +268,13 @@ INSERT INTO parties_concerts
 (6, 'Retro Bollywood Disco Night', 'CLUB_PARTY', 'DJ Suketu & Rhythm Dholaks', 'Club Illusions', 'Park Avenue Plaza', DATE_ADD(CURDATE(), INTERVAL 9 DAY), '21:00:00', 750.00, 400, 260, 'Throwback 90s and 2000s Bollywood dance hits with live percussionists and dynamic dance floors.'),
 
 -- Category: COMEDY_NIGHT (3 records)
-(7, 'Tathastu & Beyond: Standup Special', 'COMEDY_NIGHT', 'Zakir Khan Live', 'Sir Mutha Venkatasubba Concert Hall', 'Chetpet Arts District', DATE_ADD(CURDATE(), INTERVAL 4 DAY), '19:30:00', 899.00, 1200, 780, 'Heartfelt storytelling, desi relatable humor, and side-splitting comedy about growing up and friendships.'),
+(7, 'Tathastu & Beyond: Standup Special', 'COMEDY_NIGHT', 'Zakir Khan Live', 'Sir Mutha Venkatasubba Concert Hall', 'Chetpet Arts TownTrek', DATE_ADD(CURDATE(), INTERVAL 4 DAY), '19:30:00', 899.00, 1200, 780, 'Heartfelt storytelling, desi relatable humor, and side-splitting comedy about growing up and friendships.'),
 (8, 'Unfiltered: Raw & Punchy', 'COMEDY_NIGHT', 'Samay Raina & Friends', 'The Laugh Store Comedy Hub', 'Metro Square Mall', DATE_ADD(CURDATE(), INTERVAL 7 DAY), '20:00:00', 699.00, 500, 310, 'Uncensored dark comedy, spontaneous crowd work, and fresh jokes crafted live for the comedy fan.'),
 (9, 'Mind Your Wit: Improv Showdown', 'COMEDY_NIGHT', 'The Improv Collective Troupe', 'Black Box Theatre Studio', 'Koramangala 4th Block', DATE_ADD(CURDATE(), INTERVAL 10 DAY), '18:00:00', 499.00, 250, 160, 'Interactive situational improv comedy games shaped completely by live audience prompts and twists.')
 ON DUPLICATE KEY UPDATE title=VALUES(title);
 
--- 6. DISTRICT EVENTS & WORKSHOPS (Minimum 3 records per category: WORKSHOP, FOOD_FEST, SPORTS, CULTURAL)
-INSERT INTO district_events
+-- 6. TOWNTREK EVENTS & WORKSHOPS (Minimum 3 records per category: WORKSHOP, FOOD_FEST, SPORTS, CULTURAL)
+INSERT INTO towntrek_events
 (event_id, title, category, venue, location, event_date, event_time, entry_fee, max_capacity, registered_count, description) VALUES
 -- Category: WORKSHOP (3 records)
 (1, 'Artisan Pottery & Clay Sculpting Workshop', 'WORKSHOP', 'Kala Heritage Studio', 'Arts Village, Gandhi Nagar', DATE_ADD(CURDATE(), INTERVAL 2 DAY), '10:00:00', 450.00, 40, 18, 'Hands-on wheel pottery training, glazing fundamentals, and take-home clay creations guided by master potters.'),
@@ -264,17 +282,17 @@ INSERT INTO district_events
 (3, 'Urban Terrace Hydroponics & Gardening Bootcamp', 'WORKSHOP', 'Green Horizon Eco Centre', 'Jayanagar Sector 5', DATE_ADD(CURDATE(), INTERVAL 7 DAY), '09:30:00', 299.00, 50, 27, 'Learn soil-less vegetable cultivation, nutrient cycles, and balcony drip-irrigation setups for modern homes.'),
 
 -- Category: FOOD_FEST (3 records)
-(4, 'District Grand Street Food Carnival', 'FOOD_FEST', 'Central Island Grounds', 'Old Fort Esplanade', DATE_ADD(CURDATE(), INTERVAL 3 DAY), '16:00:00', 100.00, 5000, 1820, 'Over 80 curated street food stalls from Chaats, Momos, and Biryanis to live Dosa counters and Kulfi bars.'),
+(4, 'TownTrek Grand Street Food Carnival', 'FOOD_FEST', 'Central Island Grounds', 'Old Fort Esplanade', DATE_ADD(CURDATE(), INTERVAL 3 DAY), '16:00:00', 100.00, 5000, 1820, 'Over 80 curated street food stalls from Chaats, Momos, and Biryanis to live Dosa counters and Kulfi bars.'),
 (5, 'Asian Dumpling & Street Noodle Festival', 'FOOD_FEST', 'The Courtyard Square', 'Indiranagar Main Road', DATE_ADD(CURDATE(), INTERVAL 6 DAY), '12:00:00', 150.00, 800, 420, 'Authentic dim sum tastings, ramen noodle bowls, bao buns, and bubble tea varieties from master pan-Asian chefs.'),
 (6, 'Artisanal Dessert & Single-Origin Coffee Fair', 'FOOD_FEST', 'Civic Heritage Lawn', 'Cubbon Park Entrance', DATE_ADD(CURDATE(), INTERVAL 9 DAY), '11:00:00', 50.00, 1200, 680, 'Specialty bean roasting workshops, bean-to-bar chocolate tastings, French macarons, and craft cold brews.'),
 
 -- Category: SPORTS (3 records)
 (7, 'Metro Dawn 10K & Half Marathon Run', 'SPORTS', 'Marina Promenade Starting Line', 'South Coast Beachway', DATE_ADD(CURDATE(), INTERVAL 4 DAY), '05:30:00', 350.00, 2000, 1450, 'Scenic seaside morning run with electronic RFID timing chips, finisher medals, and hydration stations.'),
-(8, 'District Night Cycling Expedition (25 KM)', 'SPORTS', 'Vidhana Soudha Plaza', 'Dr. Ambedkar Veedhi', DATE_ADD(CURDATE(), INTERVAL 8 DAY), '21:30:00', 200.00, 300, 185, 'Guided night leisure cycle tour through heritage avenues, illuminated monuments, and peaceful city boulevards.'),
-(9, 'Inter-District Smash Badminton Open', 'SPORTS', 'District Indoor Sports Complex', 'Kanteerava Stadium Zone', DATE_ADD(CURDATE(), INTERVAL 11 DAY), '08:30:00', 400.00, 128, 92, 'Singles and doubles knockout tournament for enthusiasts and club players with trophies and cash vouchers.'),
+(8, 'TownTrek Night Cycling Expedition (25 KM)', 'SPORTS', 'Vidhana Soudha Plaza', 'Dr. Ambedkar Veedhi', DATE_ADD(CURDATE(), INTERVAL 8 DAY), '21:30:00', 200.00, 300, 185, 'Guided night leisure cycle tour through heritage avenues, illuminated monuments, and peaceful city boulevards.'),
+(9, 'Inter-TownTrek Smash Badminton Open', 'SPORTS', 'TownTrek Indoor Sports Complex', 'Kanteerava Stadium Zone', DATE_ADD(CURDATE(), INTERVAL 11 DAY), '08:30:00', 400.00, 128, 92, 'Singles and doubles knockout tournament for enthusiasts and club players with trophies and cash vouchers.'),
 
 -- Category: CULTURAL (3 records)
-(10, 'District Heritage Folk Dance & Classical Gala', 'CULTURAL', 'Tagore Memorial Open Theatre', 'Cultural Enclave', DATE_ADD(CURDATE(), INTERVAL 5 DAY), '18:00:00', 0.00, 1000, 610, 'Captivating evening of Bharatanatyam, Kathak, and traditional folk dances celebrating indigenous artistic heritage.'),
+(10, 'TownTrek Heritage Folk Dance & Classical Gala', 'CULTURAL', 'Tagore Memorial Open Theatre', 'Cultural Enclave', DATE_ADD(CURDATE(), INTERVAL 5 DAY), '18:00:00', 0.00, 1000, 610, 'Captivating evening of Bharatanatyam, Kathak, and traditional folk dances celebrating indigenous artistic heritage.'),
 (11, 'International Indie Cinema Retrospective', 'CULTURAL', 'Alliance Francaise Auditorium', 'Millers Road', DATE_ADD(CURDATE(), INTERVAL 8 DAY), '15:00:00', 100.00, 250, 140, 'Curated screening of award-winning world cinema, festival documentaries, and director Q&A discussions.'),
 (12, 'Moonlit Poetry Slam & Acoustic Melodies', 'CULTURAL', 'Atta Galatta Literature Lawn', 'Koramangala Arts Quarter', DATE_ADD(CURDATE(), INTERVAL 10 DAY), '19:00:00', 75.00, 120, 88, 'Soulful spoken-word poetry, Urdu shayaris, and acoustic guitar ballads in a candlelit open-air garden setting.')
 ON DUPLICATE KEY UPDATE title=VALUES(title);
@@ -294,11 +312,11 @@ INSERT INTO tourist_attractions
 
 -- Category: MUSEUM (3 records)
 (7, 'Metro Museum of Science & Cosmos Planetarium', 'MUSEUM', 'Kasturba Road, Opp. Park Gate', '10:00 AM - 06:00 PM (Closed Mon)', 80.00, 'Interactive physical science exhibits, flight simulators, dinosaur fossil gallery, and 4K digital sky show.', '11:00 AM - 03:00 PM'),
-(8, 'District Archaeological & Coin Museum', 'MUSEUM', 'Government Museum Building, Kasturba Rd', '10:00 AM - 05:00 PM (Closed Wed)', 30.00, 'Ancient Roman and Chola coins, bronze sculptures, Hoysala stone carvings, and palm-leaf manuscripts.', 'Morning 10:30 AM'),
+(8, 'TownTrek Archaeological & Coin Museum', 'MUSEUM', 'Government Museum Building, Kasturba Rd', '10:00 AM - 05:00 PM (Closed Wed)', 30.00, 'Ancient Roman and Chola coins, bronze sculptures, Hoysala stone carvings, and palm-leaf manuscripts.', 'Morning 10:30 AM'),
 (9, 'National Modern Art Gallery (Manikyavelu Mansion)', 'MUSEUM', 'Palace Road, Vasanth Nagar', '10:00 AM - 05:00 PM (Closed Mon)', 50.00, 'Colonial heritage mansion displaying Raja Ravi Varma oil paintings, contemporary sculptures, and sculpture garden cafe.', 'Afternoon 02:00 PM - 04:30 PM'),
 
 -- Category: PARK (3 records)
-(10, 'Cubbon Botanic Heritage Park', 'PARK', 'Kasturba Road, Central District', '06:00 AM - 08:00 PM', 0.00, '300 acres of tranquil bamboo groves, centuries-old mahogany trees, rose gardens, and pedestrian running tracks.', '06:00 AM - 09:00 AM (Vehicle free)'),
+(10, 'Cubbon Botanic Heritage Park', 'PARK', 'Kasturba Road, Central TownTrek', '06:00 AM - 08:00 PM', 0.00, '300 acres of tranquil bamboo groves, centuries-old mahogany trees, rose gardens, and pedestrian running tracks.', '06:00 AM - 09:00 AM (Vehicle free)'),
 (11, 'Lalbagh Botanical Garden & Glass House', 'PARK', 'Mavalli South Circle', '06:00 AM - 07:00 PM', 30.00, 'Famed 1889 Glass House inspired by London Crystal Palace, 3000-million-year-old Peninsular rock, and lotus lake.', 'Early morning or Annual Flower Shows'),
 (12, 'Sankey Freshwater Lake & Eco Promenade', 'PARK', 'Sadashivanagar, 11th Cross', '06:00 AM - 08:00 PM', 10.00, 'Paved waterside walking tracks, pedal boating jetty, bird-watching points, and lush floral borders.', 'Sunset 05:00 PM - 07:00 PM')
 ON DUPLICATE KEY UPDATE name=VALUES(name);
@@ -339,7 +357,7 @@ INSERT INTO emergency_services
 -- Category: EMERGENCY_HELPLINE (3 records)
 (1, 'National Unified Emergency Response (Police/Fire/Ambulance)', 'EMERGENCY_HELPLINE', '112', '100', 'State Central Emergency Command Centre', TRUE, 'All-in-one national emergency helpline for prompt dispatch.'),
 (2, 'Women Helpline & Distress Safety Response', 'EMERGENCY_HELPLINE', '1091', '080-22943225', 'Women Protection Wing, Central Police HQ', TRUE, 'Immediate safety patrol dispatch and legal counseling support.'),
-(3, 'Childline Emergency & Protection Network', 'EMERGENCY_HELPLINE', '1098', '080-23456789', 'District Child Protection Unit, Infantry Rd', TRUE, 'Dedicated 24/7 care and rescue for children in distress.'),
+(3, 'Childline Emergency & Protection Network', 'EMERGENCY_HELPLINE', '1098', '080-23456789', 'TownTrek Child Protection Unit, Infantry Rd', TRUE, 'Dedicated 24/7 care and rescue for children in distress.'),
 
 -- Category: HOSPITAL (3 records)
 (4, 'Apollo Multi-Specialty & 24/7 Emergency Trauma Care', 'HOSPITAL', '+91 80 2630 4050', '1066', '154/11 Bannerghatta Road, Opp. IIM', TRUE, 'Level-1 trauma center, round-the-clock cardiac and stroke response.'),
@@ -347,7 +365,7 @@ INSERT INTO emergency_services
 (6, 'Manipal Hospital & Critical Care Centre', 'HOSPITAL', '+91 80 2502 4444', '+91 80 2502 3333', '98 HAL Old Airport Road', TRUE, 'Advanced neuro-trauma, intensive care units, and 24-hr pharmacy.'),
 
 -- Category: POLICE (3 records)
-(7, 'Central District Police Control Room', 'POLICE', '100', '080-22942222', 'Infantry Road Police Headquarters', TRUE, 'Main police dispatch and PCR patrol van coordination center.'),
+(7, 'Central TownTrek Police Control Room', 'POLICE', '100', '080-22942222', 'Infantry Road Police Headquarters', TRUE, 'Main police dispatch and PCR patrol van coordination center.'),
 (8, 'Downtown Traffic & Accident Relief Cell', 'POLICE', '103', '080-22943030', 'Traffic Management Centre, St. Marks Road', TRUE, 'Traffic towing assistance, road accident response, and highway safety.'),
 (9, 'Cyber Crime & Online Fraud Investigation Cell', 'POLICE', '1930', '080-22375522', 'CID Cyber Wing, Carlton House, Palace Road', TRUE, 'Immediate reporting of online financial fraud and cyber extortion.'),
 
@@ -357,24 +375,24 @@ INSERT INTO emergency_services
 (12, 'Industrial & Chemical Hazmat Fire Command', 'FIRE_SAFETY', '101', '080-28520101', 'Electronics City Phase 1 Main Gate', TRUE, 'Equipped for chemical hazard, industrial, and electrical fire suppression.'),
 
 -- Category: CIVIC_TRANSIT (3 records)
-(13, 'District Municipal Corporation 24/7 Control Room', 'CIVIC_TRANSIT', '1533', '080-22660000', 'Corporation Central Building, Hudson Circle', TRUE, 'Potholes, water-logging, tree falls, and garbage clearance relief.'),
+(13, 'TownTrek Municipal Corporation 24/7 Control Room', 'CIVIC_TRANSIT', '1533', '080-22660000', 'Corporation Central Building, Hudson Circle', TRUE, 'Potholes, water-logging, tree falls, and garbage clearance relief.'),
 (14, 'Metro Rail Corporation Passenger Helpline & Lost/Found', 'CIVIC_TRANSIT', '1800-425-12345', '080-25191091', 'Metro Bhavan, MG Road', FALSE, 'Train timings, smart-card issues, accessibility support (05:00 AM - 11:30 PM).'),
 (15, 'State Road Transport Corporation Helpline & Bus Enquiries', 'CIVIC_TRANSIT', '080-26252625', '1800-224-997', 'Kempegowda Bus Station, Majestic', TRUE, 'Inter-city bus bookings, local Volvo shuttle schedules, and emergency transit.')
 ON DUPLICATE KEY UPDATE service_name=VALUES(service_name);
 
 -- 10. SAMPLE USER ACCOUNTS FOR TESTING
--- User: Aravindh Murugesh (email: arav@district.com, password: password123)
+-- User: Aravindh Murugesh (email: arav@towntrek.com, password: password123)
 -- Salt: a1b2c3d4e5f60718293a4b5c6d7e8f90
 INSERT INTO users (full_name, email, password_salt, password_hash) VALUES
-('Aravindh Murugesh', 'arav@district.com', 'a1b2c3d4e5f60718293a4b5c6d7e8f90', '486851b2f70b74100e4708765278c78d8a7c2fdfae58498877bc95c0c9cb3c59'),
-('District Explorer', 'user@district.com', 'b2c3d4e5f60718293a4b5c6d7e8f90a1', 'd8d15a5fbc40dcf92ea5aa6930501a3964d4b3c4ffdfad931ea7b036ca6d5c56')
+('Aravindh Murugesh', 'arav@towntrek.com', 'a1b2c3d4e5f60718293a4b5c6d7e8f90', '486851b2f70b74100e4708765278c78d8a7c2fdfae58498877bc95c0c9cb3c59'),
+('TownTrek Explorer', 'user@towntrek.com', 'b2c3d4e5f60718293a4b5c6d7e8f90a1', 'd8d15a5fbc40dcf92ea5aa6930501a3964d4b3c4ffdfad931ea7b036ca6d5c56')
 ON DUPLICATE KEY UPDATE full_name=VALUES(full_name);
 
 -- Sample initial bookings for demonstration
 INSERT INTO party_bookings (customer_name, user_email, event_id, tickets_count, total_amount, booking_status)
-VALUES ('Aravindh Murugesh', 'arav@district.com', 1, 2, 2998.00, 'CONFIRMED')
+VALUES ('Aravindh Murugesh', 'arav@towntrek.com', 1, 2, 2998.00, 'CONFIRMED')
 ON DUPLICATE KEY UPDATE customer_name=VALUES(customer_name);
 
 INSERT INTO event_registrations (customer_name, user_email, event_id, attendee_count, total_fee, status)
-VALUES ('Aravindh Murugesh', 'arav@district.com', 2, 1, 0.00, 'CONFIRMED')
+VALUES ('Aravindh Murugesh', 'arav@towntrek.com', 2, 1, 0.00, 'CONFIRMED')
 ON DUPLICATE KEY UPDATE customer_name=VALUES(customer_name);

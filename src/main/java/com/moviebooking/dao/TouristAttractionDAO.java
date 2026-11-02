@@ -16,7 +16,7 @@ public class TouristAttractionDAO {
         String sql = """
             SELECT attraction_id, name, category, location, opening_hours, entry_fee, highlights, best_time_to_visit
             FROM tourist_attractions
-            ORDER BY category, name
+            ORDER BY attraction_id ASC
             """;
         List<TouristAttraction> list = new ArrayList<>();
         try (Connection con = DBConnection.getConnection();
@@ -34,7 +34,7 @@ public class TouristAttractionDAO {
             SELECT attraction_id, name, category, location, opening_hours, entry_fee, highlights, best_time_to_visit
             FROM tourist_attractions
             WHERE category = ?
-            ORDER BY name
+            ORDER BY attraction_id ASC
             """;
         List<TouristAttraction> list = new ArrayList<>();
         try (Connection con = DBConnection.getConnection();
@@ -70,7 +70,7 @@ public class TouristAttractionDAO {
             SELECT attraction_id, name, category, location, opening_hours, entry_fee, highlights, best_time_to_visit
             FROM tourist_attractions
             WHERE name LIKE ? OR location LIKE ? OR highlights LIKE ?
-            ORDER BY name
+            ORDER BY attraction_id ASC
             """;
         List<TouristAttraction> list = new ArrayList<>();
         try (Connection con = DBConnection.getConnection();

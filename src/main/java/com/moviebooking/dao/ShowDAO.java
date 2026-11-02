@@ -132,7 +132,7 @@ public class ShowDAO {
             WHERE m.movie_name = ?
               AND s.show_date = ?
               AND t.theatre_name = ?
-            ORDER BY s.show_time
+            ORDER BY s.show_id ASC
             """;
 
         List<Show> shows = new ArrayList<>();
