@@ -14,7 +14,8 @@ public class PartyConcertDAO {
     public List<PartyConcert> findAll() throws SQLException {
         String sql = """
             SELECT event_id, title, category, artist_performer, venue, location,
-                   event_date, event_time, ticket_price, total_capacity, available_slots, description
+                   event_date, event_time, ticket_price, total_capacity, available_slots, description,
+                   COALESCE(city, 'Chennai') AS city
             FROM parties_concerts
             ORDER BY event_id ASC
             """;
@@ -29,10 +30,35 @@ public class PartyConcertDAO {
         return list;
     }
 
+    public List<PartyConcert> findByCity(String city) throws SQLException {
+        String sql = """
+            SELECT event_id, title, category, artist_performer, venue, location,
+                   event_date, event_time, ticket_price, total_capacity, available_slots, description,
+                   COALESCE(city, 'Chennai') AS city
+            FROM parties_concerts
+            WHERE LOWER(city) LIKE LOWER(?) OR LOWER(location) LIKE LOWER(?) OR LOWER(venue) LIKE LOWER(?)
+            ORDER BY event_id ASC
+            """;
+        List<PartyConcert> list = new ArrayList<>();
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, "%" + city + "%");
+            ps.setString(2, "%" + city + "%");
+            ps.setString(3, "%" + city + "%");
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapPartyConcert(rs));
+                }
+            }
+        }
+        return list;
+    }
+
     public List<PartyConcert> findByCategory(String category) throws SQLException {
         String sql = """
             SELECT event_id, title, category, artist_performer, venue, location,
-                   event_date, event_time, ticket_price, total_capacity, available_slots, description
+                   event_date, event_time, ticket_price, total_capacity, available_slots, description,
+                   COALESCE(city, 'Chennai') AS city
             FROM parties_concerts
             WHERE category = ?
             ORDER BY event_id ASC
@@ -53,7 +79,8 @@ public class PartyConcertDAO {
     public PartyConcert findById(int eventId) throws SQLException {
         String sql = """
             SELECT event_id, title, category, artist_performer, venue, location,
-                   event_date, event_time, ticket_price, total_capacity, available_slots, description
+                   event_date, event_time, ticket_price, total_capacity, available_slots, description,
+                   COALESCE(city, 'Chennai') AS city
             FROM parties_concerts
             WHERE event_id = ?
             """;
@@ -79,21 +106,26 @@ public class PartyConcertDAO {
                 try (PreparedStatement ps = con.prepareStatement(checkSql)) {
                     ps.setInt(1, eventId);
                     try (ResultSet rs = ps.executeQuery()) {
-                        if (!rs.next()) throw new SQLException("Event not found with ID: " + eventId);
+                        if (!rs.next()) throw new IllegalArgumentException("Party / concert event ID " + eventId + " not found.");
                         price = rs.getBigDecimal("ticket_price");
                         available = rs.getInt("available_slots");
                     }
                 }
 
                 if (available < count) {
-                    throw new SQLException("Only " + available + " tickets currently available for this event.");
+                    throw new IllegalStateException("Only " + available + " tickets left for this event.");
+                }
+
+                String deductSql = "UPDATE parties_concerts SET available_slots = available_slots - ? WHERE event_id = ?";
+                try (PreparedStatement ps = con.prepareStatement(deductSql)) {
+                    ps.setInt(1, count);
+                    ps.setInt(2, eventId);
+                    ps.executeUpdate();
                 }
 
                 BigDecimal total = price.multiply(BigDecimal.valueOf(count));
-
                 String insertSql = """
-                    INSERT INTO party_bookings
-                    (customer_name, user_email, event_id, tickets_count, total_amount, booking_status)
+                    INSERT INTO party_bookings (customer_name, user_email, event_id, tickets_count, total_amount, booking_status)
                     VALUES (?, ?, ?, ?, ?, 'CONFIRMED')
                     """;
                 int bookingId;
@@ -104,28 +136,72 @@ public class PartyConcertDAO {
                     ps.setInt(4, count);
                     ps.setBigDecimal(5, total);
                     ps.executeUpdate();
-                    try (ResultSet keys = ps.getGeneratedKeys()) {
-                        if (!keys.next()) throw new SQLException("Could not retrieve booking ID.");
-                        bookingId = keys.getInt(1);
+                    try (ResultSet rs = ps.getGeneratedKeys()) {
+                        if (rs.next()) bookingId = rs.getInt(1);
+                        else throw new SQLException("Failed to retrieve generated booking ID.");
                     }
                 }
 
-                String updateSql = "UPDATE parties_concerts SET available_slots = available_slots - ? WHERE event_id = ?";
+                con.commit();
+                return bookingId;
+            } catch (Exception ex) {
+                con.rollback();
+                throw ex;
+            } finally {
+                con.setAutoCommit(true);
+            }
+        }
+    }
+
+    public boolean cancelPartyBooking(int bookingId) throws SQLException {
+        try (Connection con = DBConnection.getConnection()) {
+            con.setAutoCommit(false);
+            try {
+                String checkSql = "SELECT event_id, tickets_count, booking_status FROM party_bookings WHERE booking_id = ? FOR UPDATE";
+                int eventId;
+                int count;
+                String status;
+                try (PreparedStatement ps = con.prepareStatement(checkSql)) {
+                    ps.setInt(1, bookingId);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (!rs.next()) return false;
+                        eventId = rs.getInt("event_id");
+                        count = rs.getInt("tickets_count");
+                        status = rs.getString("booking_status");
+                    }
+                }
+
+                if ("CANCELLED".equalsIgnoreCase(status)) {
+                    con.rollback();
+                    return false;
+                }
+
+                String updateSql = "UPDATE party_bookings SET booking_status = 'CANCELLED' WHERE booking_id = ?";
                 try (PreparedStatement ps = con.prepareStatement(updateSql)) {
+                    ps.setInt(1, bookingId);
+                    ps.executeUpdate();
+                }
+
+                String restoreSql = "UPDATE parties_concerts SET available_slots = available_slots + ? WHERE event_id = ?";
+                try (PreparedStatement ps = con.prepareStatement(restoreSql)) {
                     ps.setInt(1, count);
                     ps.setInt(2, eventId);
                     ps.executeUpdate();
                 }
 
                 con.commit();
-                return bookingId;
-            } catch (SQLException | RuntimeException e) {
+                return true;
+            } catch (Exception ex) {
                 con.rollback();
-                throw e;
+                throw ex;
             } finally {
                 con.setAutoCommit(true);
             }
         }
+    }
+
+    public boolean cancelBooking(int bookingId) throws SQLException {
+        return cancelPartyBooking(bookingId);
     }
 
     public List<PartyBooking> findBookingsByUser(String userEmail) throws SQLException {
@@ -135,8 +211,8 @@ public class PartyConcertDAO {
                    b.tickets_count, b.total_amount, b.booking_status, b.booking_date
             FROM party_bookings b
             JOIN parties_concerts e ON e.event_id = b.event_id
-            WHERE b.user_email = ?
-            ORDER BY b.booking_id ASC
+            WHERE LOWER(b.user_email) = LOWER(?)
+            ORDER BY b.booking_id DESC
             """;
         List<PartyBooking> list = new ArrayList<>();
         try (Connection con = DBConnection.getConnection();
@@ -170,47 +246,30 @@ public class PartyConcertDAO {
         return null;
     }
 
-    public boolean cancelBooking(int bookingId) throws SQLException {
-        try (Connection con = DBConnection.getConnection()) {
-            con.setAutoCommit(false);
-            try {
-                String selectSql = "SELECT event_id, tickets_count, booking_status FROM party_bookings WHERE booking_id = ? FOR UPDATE";
-                int eventId;
-                int tickets;
-                try (PreparedStatement ps = con.prepareStatement(selectSql)) {
-                    ps.setInt(1, bookingId);
-                    try (ResultSet rs = ps.executeQuery()) {
-                        if (!rs.next() || !"CONFIRMED".equalsIgnoreCase(rs.getString("booking_status"))) {
-                            con.rollback();
-                            return false;
-                        }
-                        eventId = rs.getInt("event_id");
-                        tickets = rs.getInt("tickets_count");
-                    }
+    public List<PartyConcert> search(String keyword) throws SQLException {
+        String sql = """
+            SELECT event_id, title, category, artist_performer, venue, location,
+                   event_date, event_time, ticket_price, total_capacity, available_slots, description,
+                   COALESCE(city, 'Chennai') AS city
+            FROM parties_concerts
+            WHERE LOWER(title) LIKE LOWER(?) OR LOWER(artist_performer) LIKE LOWER(?) OR LOWER(venue) LIKE LOWER(?) OR LOWER(city) LIKE LOWER(?)
+            ORDER BY event_id ASC
+            """;
+        String pattern = "%" + keyword + "%";
+        List<PartyConcert> list = new ArrayList<>();
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, pattern);
+            ps.setString(2, pattern);
+            ps.setString(3, pattern);
+            ps.setString(4, pattern);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapPartyConcert(rs));
                 }
-
-                String updateBooking = "UPDATE party_bookings SET booking_status = 'CANCELLED' WHERE booking_id = ?";
-                try (PreparedStatement ps = con.prepareStatement(updateBooking)) {
-                    ps.setInt(1, bookingId);
-                    ps.executeUpdate();
-                }
-
-                String updateSlots = "UPDATE parties_concerts SET available_slots = available_slots + ? WHERE event_id = ?";
-                try (PreparedStatement ps = con.prepareStatement(updateSlots)) {
-                    ps.setInt(1, tickets);
-                    ps.setInt(2, eventId);
-                    ps.executeUpdate();
-                }
-
-                con.commit();
-                return true;
-            } catch (SQLException | RuntimeException e) {
-                con.rollback();
-                throw e;
-            } finally {
-                con.setAutoCommit(true);
             }
         }
+        return list;
     }
 
     private PartyConcert mapPartyConcert(ResultSet rs) throws SQLException {
@@ -226,7 +285,8 @@ public class PartyConcertDAO {
                 rs.getBigDecimal("ticket_price"),
                 rs.getInt("total_capacity"),
                 rs.getInt("available_slots"),
-                rs.getString("description")
+                rs.getString("description"),
+                rs.getString("city")
         );
     }
 

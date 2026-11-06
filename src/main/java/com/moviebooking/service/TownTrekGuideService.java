@@ -20,6 +20,10 @@ public class TownTrekGuideService {
         return attractionDAO.findAll();
     }
 
+    public List<TouristAttraction> getAttractionsByCity(String city) throws SQLException {
+        return attractionDAO.findByCity(city);
+    }
+
     public List<TouristAttraction> getAttractionsByCategory(String category) throws SQLException {
         return attractionDAO.findByCategory(category);
     }
@@ -33,6 +37,10 @@ public class TownTrekGuideService {
         return spotDAO.findAll();
     }
 
+    public List<CitySpot> getSpotsByCity(String city) throws SQLException {
+        return spotDAO.findByCity(city);
+    }
+
     public List<CitySpot> getSpotsByType(String type) throws SQLException {
         return spotDAO.findByType(type);
     }
@@ -44,6 +52,10 @@ public class TownTrekGuideService {
     // Emergency & Essential Public Services
     public List<EmergencyService> getAllEmergencyServices() throws SQLException {
         return emergencyDAO.findAll();
+    }
+
+    public List<EmergencyService> getEmergencyServicesByCity(String city) throws SQLException {
+        return emergencyDAO.findByCity(city);
     }
 
     public List<EmergencyService> getEmergencyServicesByCategory(String category) throws SQLException {

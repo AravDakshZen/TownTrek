@@ -14,6 +14,10 @@ public class TownTrekEventService {
         return dao.findAll();
     }
 
+    public List<TownTrekEvent> getEventsByCity(String city) throws SQLException {
+        return dao.findByCity(city);
+    }
+
     public List<TownTrekEvent> getEventsByCategory(String category) throws SQLException {
         return dao.findByCategory(category);
     }

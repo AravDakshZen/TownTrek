@@ -12,10 +12,15 @@ public class Show {
     private int theatreId;
     private String theatreName;
     private String theatreLocation;
+    private String city;
 
     public Show() {}
 
     public Show(int showId, int movieId, String movieName, LocalDate showDate, LocalTime showTime, int theatreId, String theatreName, String theatreLocation) {
+        this(showId, movieId, movieName, showDate, showTime, theatreId, theatreName, theatreLocation, "Chennai");
+    }
+
+    public Show(int showId, int movieId, String movieName, LocalDate showDate, LocalTime showTime, int theatreId, String theatreName, String theatreLocation, String city) {
         this.showId = showId;
         this.movieId = movieId;
         this.movieName = movieName;
@@ -24,6 +29,7 @@ public class Show {
         this.theatreId = theatreId;
         this.theatreName = theatreName;
         this.theatreLocation = theatreLocation;
+        this.city = city != null && !city.isBlank() ? city : "Chennai";
     }
 
     public int getShowId() { return showId; }
@@ -49,5 +55,7 @@ public class Show {
 
     public String getTheatreLocation() { return theatreLocation; }
     public void setTheatreLocation(String theatreLocation) { this.theatreLocation = theatreLocation; }
-}
 
+    public String getCity() { return city; }
+    public void setCity(String city) { this.city = city; }
+}

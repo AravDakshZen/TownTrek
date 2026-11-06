@@ -8,6 +8,12 @@ interface AuthContextType {
   login: (token: string, user: User) => void;
   logout: () => void;
   isAuthenticated: boolean;
+  authModalOpen: boolean;
+  openAuthModal: (msg?: string) => void;
+  closeAuthModal: () => void;
+  authModalMessage: string;
+  hasSkippedAuth: boolean;
+  setHasSkippedAuth: (val: boolean) => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -16,6 +22,12 @@ const AuthContext = createContext<AuthContextType>({
   login: () => {},
   logout: () => {},
   isAuthenticated: false,
+  authModalOpen: false,
+  openAuthModal: () => {},
+  closeAuthModal: () => {},
+  authModalMessage: '',
+  hasSkippedAuth: false,
+  setHasSkippedAuth: () => {},
 });
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -24,6 +36,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const saved = localStorage.getItem('towntrek_user');
     return saved ? JSON.parse(saved) : null;
   });
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalMessage, setAuthModalMessage] = useState('');
+  const [hasSkippedAuth, setHasSkippedAuth] = useState(false);
 
   useEffect(() => {
     if (token && !user) {
@@ -31,6 +46,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .then((res) => {
           setUser(res.data);
           localStorage.setItem('towntrek_user', JSON.stringify(res.data));
+          if (res.data?.city && !localStorage.getItem('towntrek_selected_city')) {
+            localStorage.setItem('towntrek_selected_city', res.data.city);
+          }
         })
         .catch(() => {
           logout();
@@ -43,6 +61,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(newUser);
     localStorage.setItem('towntrek_token', newToken);
     localStorage.setItem('towntrek_user', JSON.stringify(newUser));
+    if (newUser.city) {
+      localStorage.setItem('towntrek_selected_city', newUser.city);
+    }
   };
 
   const logout = () => {
@@ -50,6 +71,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     localStorage.removeItem('towntrek_token');
     localStorage.removeItem('towntrek_user');
+  };
+
+  const openAuthModal = (msg?: string) => {
+    setAuthModalMessage(msg || 'Please sign in to proceed with this booking.');
+    setAuthModalOpen(true);
+  };
+
+  const closeAuthModal = () => {
+    setAuthModalOpen(false);
   };
 
   return (
@@ -60,6 +90,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         login,
         logout,
         isAuthenticated: !!token,
+        authModalOpen,
+        openAuthModal,
+        closeAuthModal,
+        authModalMessage,
+        hasSkippedAuth,
+        setHasSkippedAuth,
       }}
     >
       {children}

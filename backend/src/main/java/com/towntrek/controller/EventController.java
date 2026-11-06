@@ -66,5 +66,13 @@ public class EventController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
         }
     }
-}
 
+    @PostMapping({"/cancel/{id}", "/{id}/cancel"})
+    public ResponseEntity<Map<String, Object>> cancelRegistration(@PathVariable int id) {
+        boolean ok = eventDAO.cancelRegistration(id);
+        Map<String, Object> res = new HashMap<>();
+        res.put("success", ok);
+        res.put("message", ok ? "Event registration #" + id + " cancelled. Spots released." : "Failed to cancel registration.");
+        return ResponseEntity.ok(res);
+    }
+}

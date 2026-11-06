@@ -9,9 +9,7 @@ import com.towntrek.model.PartyBooking;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/passes")
@@ -31,28 +29,69 @@ public class BookingManagementController {
     public ResponseEntity<Map<String, Object>> getAllUserPasses(
             @RequestParam(required = false) String email,
             @RequestParam(required = false) String name,
+            @RequestParam(required = false) String altName,
+            @RequestParam(required = false) String altEmail,
+            @RequestParam(required = false) String movieIds,
+            @RequestParam(required = false) String partyIds,
+            @RequestParam(required = false) String eventIds,
             @RequestParam(required = false, defaultValue = "false") boolean all) {
 
         Map<String, Object> result = new HashMap<>();
 
-        boolean showAll = all || ((email == null || email.isBlank()) && (name == null || name.isBlank()));
+        boolean showAll = all || ((email == null || email.isBlank()) && (name == null || name.isBlank()) &&
+                (altName == null || altName.isBlank()) && (altEmail == null || altEmail.isBlank()) &&
+                (movieIds == null || movieIds.isBlank()));
 
         if (showAll) {
-            // Return all active and confirmed passes across the system
-            result.put("movieBookings", movieBookingDAO.findAllBookings());
-            result.put("partyBookings", partyConcertDAO.findAllBookings());
-            result.put("eventRegistrations", eventDAO.findAllRegistrations());
+            // Return all passes across the system safely
+            try {
+                result.put("movieBookings", movieBookingDAO.findAllBookings());
+            } catch (Exception e) {
+                result.put("movieBookings", Collections.emptyList());
+            }
+            try {
+                result.put("partyBookings", partyConcertDAO.findAllBookings());
+            } catch (Exception e) {
+                result.put("partyBookings", Collections.emptyList());
+            }
+            try {
+                result.put("eventRegistrations", eventDAO.findAllRegistrations());
+            } catch (Exception e) {
+                result.put("eventRegistrations", Collections.emptyList());
+            }
         } else {
-            // Search movies by customer name
-            String searchName = (name != null && !name.isBlank()) ? name : email;
-            List<MovieBookingDetail> movies = movieBookingDAO.findBookingsByCustomer(searchName);
-            result.put("movieBookings", movies);
+            List<String> names = new ArrayList<>();
+            if (name != null && !name.isBlank()) names.add(name.trim());
+            if (altName != null && !altName.isBlank() && !names.contains(altName.trim())) names.add(altName.trim());
 
-            // Search parties and events by email OR name
-            List<PartyBooking> parties = partyConcertDAO.findBookingsByUserOrName(email, name);
-            List<EventRegistration> events = eventDAO.findRegistrationsByUserOrName(email, name);
-            result.put("partyBookings", parties);
-            result.put("eventRegistrations", events);
+            List<String> emails = new ArrayList<>();
+            if (email != null && !email.isBlank()) emails.add(email.trim());
+            if (altEmail != null && !altEmail.isBlank() && !emails.contains(altEmail.trim())) emails.add(altEmail.trim());
+
+            List<Integer> parsedMovieIds = parseIdList(movieIds);
+            List<Integer> parsedPartyIds = parseIdList(partyIds);
+            List<Integer> parsedEventIds = parseIdList(eventIds);
+
+            try {
+                List<MovieBookingDetail> movies = movieBookingDAO.findBookingsForUser(names, emails, parsedMovieIds);
+                result.put("movieBookings", movies);
+            } catch (Exception e) {
+                result.put("movieBookings", Collections.emptyList());
+            }
+
+            try {
+                List<PartyBooking> parties = partyConcertDAO.findBookingsForUser(names, emails, parsedPartyIds);
+                result.put("partyBookings", parties);
+            } catch (Exception e) {
+                result.put("partyBookings", Collections.emptyList());
+            }
+
+            try {
+                List<EventRegistration> events = eventDAO.findRegistrationsForUser(names, emails, parsedEventIds);
+                result.put("eventRegistrations", events);
+            } catch (Exception e) {
+                result.put("eventRegistrations", Collections.emptyList());
+            }
         }
 
         return ResponseEntity.ok(result);
@@ -67,7 +106,7 @@ public class BookingManagementController {
         return ResponseEntity.ok(detail);
     }
 
-    @PostMapping("/movies/{id}/cancel")
+    @PostMapping({"/movies/{id}/cancel", "/movies/cancel/{id}"})
     public ResponseEntity<Map<String, Object>> cancelMovieBooking(@PathVariable int id) {
         boolean ok = movieBookingDAO.cancelBooking(id);
         Map<String, Object> res = new HashMap<>();
@@ -76,7 +115,7 @@ public class BookingManagementController {
         return ResponseEntity.ok(res);
     }
 
-    @PostMapping("/parties/{id}/cancel")
+    @PostMapping({"/parties/{id}/cancel", "/parties/cancel/{id}"})
     public ResponseEntity<Map<String, Object>> cancelPartyBooking(@PathVariable int id) {
         boolean ok = partyConcertDAO.cancelBooking(id);
         Map<String, Object> res = new HashMap<>();
@@ -85,12 +124,24 @@ public class BookingManagementController {
         return ResponseEntity.ok(res);
     }
 
-    @PostMapping("/events/{id}/cancel")
+    @PostMapping({"/events/{id}/cancel", "/events/cancel/{id}"})
     public ResponseEntity<Map<String, Object>> cancelEventRegistration(@PathVariable int id) {
         boolean ok = eventDAO.cancelRegistration(id);
         Map<String, Object> res = new HashMap<>();
         res.put("success", ok);
         res.put("message", ok ? "Event registration #" + id + " cancelled. Spots released." : "Failed to cancel registration.");
         return ResponseEntity.ok(res);
+    }
+
+    private List<Integer> parseIdList(String raw) {
+        if (raw == null || raw.isBlank()) return Collections.emptyList();
+        List<Integer> list = new ArrayList<>();
+        for (String part : raw.split(",")) {
+            try {
+                int val = Integer.parseInt(part.trim());
+                list.add(val);
+            } catch (NumberFormatException ignored) {}
+        }
+        return list;
     }
 }

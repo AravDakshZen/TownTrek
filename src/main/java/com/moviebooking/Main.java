@@ -46,6 +46,7 @@ public class Main {
     // Session State
     private static String currentUserName = "Guest Explorer";
     private static String currentUserEmail = "guest@towntrek.com";
+    private static String currentUserCity = "Chennai";
 
     private static final String DIVIDER = "____________________________________________________________________________________";
     private static final String SUB_DIVIDER = "______________________________________________________";
@@ -58,7 +59,7 @@ public class Main {
 
         while (true) {
             printMainMenu();
-            int choice = InputHelper.readInt(scanner, "Choose an option (0-8): ");
+            int choice = InputHelper.readInt(scanner, "Choose an option (0-9): ");
             try {
                 switch (choice) {
                     case 1 -> movieSectionMenu();
@@ -69,13 +70,14 @@ public class Main {
                     case 6 -> emergencyServicesMenu();
                     case 7 -> myPassesMenu();
                     case 8 -> cityQuickSearch();
+                    case 9 -> editProfileMenu();
                     case 0 -> {
                         System.out.println("\n" + DIVIDER);
                         System.out.println("  Thank you for using TownTrek. Have a wonderful day exploring!");
                         System.out.println(DIVIDER + "\n");
                         return;
                     }
-                    default -> System.out.println("Please choose a valid option (0-8).");
+                    default -> System.out.println("Please choose a valid option (0-9).");
                 }
             } catch (Exception e) {
                 System.out.println("\n[!] Notice: " + e.getMessage());
@@ -99,7 +101,7 @@ public class Main {
         System.out.println("                                TOWNTREK HUB");
         System.out.println(DIVIDER);
         System.out.printf(" Active User : %s (%s)%n", currentUserName, currentUserEmail);
-        System.out.println(" City        : Metropolitan Central City");
+        System.out.printf(" Active City : %s%n", currentUserCity);
         System.out.println(DIVIDER);
         System.out.println("  1. Movies & Cinema             Browse movies, cinemas, seat maps & book tickets");
         System.out.println("  2. Parties & Live Concerts     Discover DJ nights, music fests & comedy shows");
@@ -109,6 +111,7 @@ public class Main {
         System.out.println("  6. Emergency & Public Services 24/7 Police, trauma care, ambulance & civic helplines");
         System.out.println("  7. My Passes & Bookings        Unified ticket dashboard & cancellations");
         System.out.println("  8. City Quick Search           Find spots, events, or movies by keyword");
+        System.out.println("  9. Edit Profile & Settings     Update name, email, switch city & password");
         System.out.println("  0. Sign Out / Exit");
         System.out.println(DIVIDER);
     }
@@ -138,7 +141,8 @@ public class Main {
                     case 3 -> {
                         currentUserName = "Guest Explorer";
                         currentUserEmail = "guest@towntrek.com";
-                        System.out.println("\nWelcome, Guest Explorer! You are browsing in guest mode.");
+                        currentUserCity = "Chennai";
+                        System.out.println("\nWelcome, Guest Explorer! You are browsing in guest mode [City: Chennai].");
                         return true;
                     }
                     case 0 -> {
@@ -173,8 +177,25 @@ public class Main {
             return;
         }
 
-        if (authDAO.register(name, email, password)) {
-            System.out.println("Account created successfully! Please sign in with your credentials.");
+        System.out.println("\nSelect your Preferred Metropolitan District City:");
+        System.out.println("  1. Chennai");
+        System.out.println("  2. Bangalore");
+        System.out.println("  3. Mumbai");
+        System.out.println("  4. Other (Custom District City)");
+        int cityChoice = InputHelper.readInt(scanner, "Choose city (1-4, default 1): ");
+        String city = switch (cityChoice) {
+            case 2 -> "Bangalore";
+            case 3 -> "Mumbai";
+            case 4 -> {
+                System.out.print("Enter your city/district name: ");
+                String c = scanner.nextLine().trim();
+                yield c.isBlank() ? "Chennai" : c;
+            }
+            default -> "Chennai";
+        };
+
+        if (authDAO.register(name, email, password, city)) {
+            System.out.printf("Account created successfully for district: %s! Please sign in.%n", city);
         } else {
             System.out.println("An account with this email already exists. Please sign in.");
         }
@@ -198,7 +219,8 @@ public class Main {
 
         currentUserName = user.getFullName();
         currentUserEmail = user.getEmail();
-        System.out.printf("%nSign-in successful! Welcome back, %s!%n", currentUserName);
+        currentUserCity = (user.getCity() != null && !user.getCity().isBlank()) ? user.getCity() : "Chennai";
+        System.out.printf("%nSign-in successful! Welcome back, %s [District: %s]!%n", currentUserName, currentUserCity);
         return true;
     }
 
@@ -1676,4 +1698,122 @@ public class Main {
             default -> priceRange;
         };
     }
+
+    // ====================================================================
+    // MODULE 9: EDIT PROFILE & ACCOUNT SETTINGS
+    // ====================================================================
+
+    private static void editProfileMenu() throws Exception {
+        if ("guest@towntrek.com".equalsIgnoreCase(currentUserEmail)) {
+            System.out.println("\nYou are currently in Guest Explorer mode.");
+            System.out.println("Please sign out and create an account or sign in to edit profile settings.");
+            return;
+        }
+
+        while (true) {
+            System.out.println("\n" + DIVIDER);
+            System.out.println("                   EDIT PROFILE & ACCOUNT SETTINGS");
+            System.out.println(DIVIDER);
+            System.out.printf(" Active Profile : %s (%s)%n", currentUserName, currentUserEmail);
+            System.out.printf(" Active District: %s%n", currentUserCity);
+            System.out.println(DIVIDER);
+            System.out.println("  1. View Profile Details");
+            System.out.println("  2. Update Full Name");
+            System.out.println("  3. Update Email Address");
+            System.out.println("  4. Switch / Change District City (Chennai, Bangalore, Mumbai, Custom)");
+            System.out.println("  5. Change Password");
+            System.out.println("  0. Return to Main Menu");
+            System.out.println(DIVIDER);
+
+            int choice = InputHelper.readInt(scanner, "Choose profile option (0-5): ");
+            switch (choice) {
+                case 1 -> {
+                    UserAccount acc = authDAO.findByEmail(currentUserEmail);
+                    System.out.println("\n" + SUB_DIVIDER);
+                    System.out.println("                     USER PROFILE DETAILS");
+                    System.out.println(SUB_DIVIDER);
+                    System.out.println(" Account ID  : #" + (acc != null ? acc.getUserId() : "N/A"));
+                    System.out.println(" Full Name   : " + currentUserName);
+                    System.out.println(" Email       : " + currentUserEmail);
+                    System.out.println(" City        : " + currentUserCity);
+                    System.out.println(SUB_DIVIDER);
+                }
+                case 2 -> {
+                    System.out.print("Enter your new full name: ");
+                    String newName = scanner.nextLine().trim();
+                    if (newName.isBlank()) {
+                        System.out.println("Name cannot be empty.");
+                        break;
+                    }
+                    if (authDAO.updateFullName(currentUserEmail, newName)) {
+                        currentUserName = newName;
+                        System.out.println("Full name updated successfully to: " + currentUserName);
+                    } else {
+                        System.out.println("Failed to update full name.");
+                    }
+                }
+                case 3 -> {
+                    System.out.print("Enter your new email address: ");
+                    String newEmail = scanner.nextLine().trim().toLowerCase(Locale.ROOT);
+                    if (!newEmail.matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
+                        System.out.println("Invalid email format.");
+                        break;
+                    }
+                    if (authDAO.updateEmail(currentUserEmail, newEmail)) {
+                        currentUserEmail = newEmail;
+                        System.out.println("Email updated successfully to: " + currentUserEmail);
+                    } else {
+                        System.out.println("Failed to update email. Email might already exist in database.");
+                    }
+                }
+                case 4 -> {
+                    System.out.println("\nSelect District City to explore:");
+                    System.out.println("  1. Chennai");
+                    System.out.println("  2. Bangalore");
+                    System.out.println("  3. Mumbai");
+                    System.out.println("  4. Other (Custom City)");
+                    int c = InputHelper.readInt(scanner, "Select city (1-4): ");
+                    String newCity = switch (c) {
+                        case 2 -> "Bangalore";
+                        case 3 -> "Mumbai";
+                        case 4 -> {
+                            System.out.print("Enter city name: ");
+                            String cust = scanner.nextLine().trim();
+                            yield cust.isBlank() ? currentUserCity : cust;
+                        }
+                        default -> "Chennai";
+                    };
+                    if (authDAO.updateCityByEmail(currentUserEmail, newCity)) {
+                        currentUserCity = newCity;
+                        System.out.printf("District successfully switched to: %s! All listings will now reflect %s.%n", currentUserCity, currentUserCity);
+                    } else {
+                        System.out.println("Failed to update district city.");
+                    }
+                }
+                case 5 -> {
+                    System.out.print("Enter your current password: ");
+                    String oldPass = scanner.nextLine();
+                    UserAccount user = authDAO.authenticate(currentUserEmail, oldPass);
+                    if (user == null) {
+                        System.out.println("Current password verification failed.");
+                        break;
+                    }
+                    System.out.print("Enter new password (min 8 characters): ");
+                    String newPass = scanner.nextLine();
+                    if (newPass.length() < 8) {
+                        System.out.println("New password must be at least 8 characters long.");
+                        break;
+                    }
+                    if (authDAO.changePassword(user.getUserId(), oldPass, newPass)) {
+                        System.out.println("Password changed successfully!");
+                    } else {
+                        System.out.println("Failed to change password.");
+                    }
+                }
+                case 0 -> { return; }
+                default -> System.out.println("Invalid choice. Select 0-5.");
+            }
+        }
+    }
 }
+

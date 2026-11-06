@@ -23,7 +23,7 @@ export const DatabaseStatusBanner: React.FC = () => {
   if (!errorMsg) return null;
 
   return (
-    <div className="bg-amber-500/10 border-b border-amber-500/30 text-amber-900 px-4 py-2 text-xs flex items-center justify-center space-x-2">
+    <div className="bg-amber-500/10 border-b border-amber-500/30 text-amber-700 dark:text-amber-400 px-4 py-2 text-xs flex items-center justify-center space-x-2">
       <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
       <span>
         <strong>Backend Notice:</strong> {errorMsg}. Ensure MySQL and Spring Boot are active.

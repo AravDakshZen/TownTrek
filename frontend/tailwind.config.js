@@ -1,11 +1,16 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['"Be Vietnam Pro"', 'sans-serif'],
+        heading: ['"Be Vietnam Pro"', 'sans-serif'],
+      },
       colors: {
         brand: {
           50: '#f0f7ff',
@@ -16,8 +21,13 @@ export default {
           900: '#0c4a6e',
         },
       },
+      animation: {
+        'spin-slow': 'spin 8s linear infinite',
+      },
+      backdropBlur: {
+        xs: '2px',
+      },
     },
   },
   plugins: [],
 }
-

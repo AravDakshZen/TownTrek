@@ -17,7 +17,8 @@ public class TouristAttractionDAO {
 
     public List<TouristAttraction> findAll() {
         String sql = """
-            SELECT attraction_id, name, category, location, opening_hours, entry_fee, highlights, best_time_to_visit
+            SELECT attraction_id, name, category, location, opening_hours, entry_fee, highlights, best_time_to_visit,
+                   COALESCE(city, 'Chennai') AS city
             FROM tourist_attractions
             ORDER BY attraction_id ASC
             """;
@@ -29,13 +30,15 @@ public class TouristAttractionDAO {
                 rs.getString("opening_hours"),
                 rs.getBigDecimal("entry_fee"),
                 rs.getString("highlights"),
-                rs.getString("best_time_to_visit")
+                rs.getString("best_time_to_visit"),
+                rs.getString("city")
         ));
     }
 
     public List<TouristAttraction> findByCategory(String category) {
         String sql = """
-            SELECT attraction_id, name, category, location, opening_hours, entry_fee, highlights, best_time_to_visit
+            SELECT attraction_id, name, category, location, opening_hours, entry_fee, highlights, best_time_to_visit,
+                   COALESCE(city, 'Chennai') AS city
             FROM tourist_attractions
             WHERE category = ?
             ORDER BY attraction_id ASC
@@ -48,13 +51,15 @@ public class TouristAttractionDAO {
                 rs.getString("opening_hours"),
                 rs.getBigDecimal("entry_fee"),
                 rs.getString("highlights"),
-                rs.getString("best_time_to_visit")
+                rs.getString("best_time_to_visit"),
+                rs.getString("city")
         ), category);
     }
 
     public TouristAttraction findById(int id) {
         String sql = """
-            SELECT attraction_id, name, category, location, opening_hours, entry_fee, highlights, best_time_to_visit
+            SELECT attraction_id, name, category, location, opening_hours, entry_fee, highlights, best_time_to_visit,
+                   COALESCE(city, 'Chennai') AS city
             FROM tourist_attractions
             WHERE attraction_id = ?
             """;
@@ -66,14 +71,16 @@ public class TouristAttractionDAO {
                 rs.getString("opening_hours"),
                 rs.getBigDecimal("entry_fee"),
                 rs.getString("highlights"),
-                rs.getString("best_time_to_visit")
+                rs.getString("best_time_to_visit"),
+                rs.getString("city")
         ), id);
         return list.isEmpty() ? null : list.get(0);
     }
 
     public List<TouristAttraction> search(String keyword) {
         String sql = """
-            SELECT attraction_id, name, category, location, opening_hours, entry_fee, highlights, best_time_to_visit
+            SELECT attraction_id, name, category, location, opening_hours, entry_fee, highlights, best_time_to_visit,
+                   COALESCE(city, 'Chennai') AS city
             FROM tourist_attractions
             WHERE name LIKE ? OR location LIKE ? OR highlights LIKE ?
             ORDER BY attraction_id ASC
@@ -87,8 +94,8 @@ public class TouristAttractionDAO {
                 rs.getString("opening_hours"),
                 rs.getBigDecimal("entry_fee"),
                 rs.getString("highlights"),
-                rs.getString("best_time_to_visit")
+                rs.getString("best_time_to_visit"),
+                rs.getString("city")
         ), pattern, pattern, pattern);
     }
 }
-

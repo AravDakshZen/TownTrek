@@ -66,5 +66,13 @@ public class PartyController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
         }
     }
-}
 
+    @PostMapping({"/cancel/{id}", "/{id}/cancel"})
+    public ResponseEntity<Map<String, Object>> cancelBooking(@PathVariable int id) {
+        boolean ok = partyConcertDAO.cancelBooking(id);
+        Map<String, Object> res = new HashMap<>();
+        res.put("success", ok);
+        res.put("message", ok ? "Party pass #" + id + " cancelled. Capacity updated." : "Failed to cancel party pass.");
+        return ResponseEntity.ok(res);
+    }
+}

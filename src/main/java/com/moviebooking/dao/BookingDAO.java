@@ -1,6 +1,7 @@
 package com.moviebooking.dao;
 
 import com.moviebooking.config.DBConnection;
+import com.moviebooking.model.MovieBookingDetail;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.util.ArrayList;
@@ -18,33 +19,27 @@ public class BookingDAO {
                 List<Integer> seatIds = new ArrayList<>();
                 BigDecimal calculated = BigDecimal.ZERO;
 
-                
-String selectSql = """
-    SELECT seat_id, price FROM seats
-    WHERE show_id = ? AND seat_code = ? AND seat_status = 'AVAILABLE'
-    FOR UPDATE
-    """;
+                String selectSql = """
+                    SELECT seat_id, price FROM seats
+                    WHERE show_id = ? AND seat_code = ? AND seat_status = 'AVAILABLE'
+                    FOR UPDATE
+                    """;
 
-try (PreparedStatement ps = con.prepareStatement(selectSql)) {
-    for (String code : seatCodes) {
-        ps.setInt(1, showId);
-        ps.setString(2, code);
-        try (ResultSet rs = ps.executeQuery()) {
-            if (!rs.next()) {
-                throw new SQLException(
-                    "Seat " + code + " is unavailable or invalid."
-                );
-            }
-
-            // Save the seat ID so its status can be updated
-            seatIds.add(rs.getInt("seat_id"));
-
-            // Add the actual seat price to the booking total
-            calculated = calculated.add(rs.getBigDecimal("price"));
-        }
-    }
-}
-
+                try (PreparedStatement ps = con.prepareStatement(selectSql)) {
+                    for (String code : seatCodes) {
+                        ps.setInt(1, showId);
+                        ps.setString(2, code);
+                        try (ResultSet rs = ps.executeQuery()) {
+                            if (!rs.next()) {
+                                throw new SQLException(
+                                    "Seat " + code + " is unavailable or invalid."
+                                );
+                            }
+                            seatIds.add(rs.getInt("seat_id"));
+                            calculated = calculated.add(rs.getBigDecimal("price"));
+                        }
+                    }
+                }
 
                 if (couponCode != null && couponCode.equalsIgnoreCase("CINE10")) {
                     calculated = calculated.multiply(new BigDecimal("0.90")).setScale(2, java.math.RoundingMode.HALF_UP);
@@ -95,15 +90,26 @@ try (PreparedStatement ps = con.prepareStatement(selectSql)) {
         try (Connection con = DBConnection.getConnection()) {
             con.setAutoCommit(false);
             try {
-                String findSql = "SELECT seat_codes, booking_status FROM bookings WHERE booking_id = ? FOR UPDATE";
+                String findSql = "SELECT show_id, seat_codes, booking_status FROM bookings WHERE booking_id = ? FOR UPDATE";
                 String seatCodes;
+                int showId;
                 try (PreparedStatement ps = con.prepareStatement(findSql)) {
                     ps.setInt(1, bookingId);
                     try (ResultSet rs = ps.executeQuery()) {
-                        if (!rs.next() || !"CONFIRMED".equals(rs.getString("booking_status"))) {
+                        if (!rs.next()) {
                             con.rollback();
                             return false;
                         }
+                        String status = rs.getString("booking_status");
+                        if ("CANCELLED".equalsIgnoreCase(status)) {
+                            con.rollback();
+                            return true;
+                        }
+                        if (!"CONFIRMED".equalsIgnoreCase(status)) {
+                            con.rollback();
+                            return false;
+                        }
+                        showId = rs.getInt("show_id");
                         seatCodes = rs.getString("seat_codes");
                     }
                 }
@@ -115,11 +121,11 @@ try (PreparedStatement ps = con.prepareStatement(selectSql)) {
                 }
 
                 String[] codes = seatCodes.split(",");
-                String updateSeats = "UPDATE seats SET seat_status = 'AVAILABLE' WHERE seat_code = ? AND show_id = (SELECT show_id FROM bookings WHERE booking_id = ?)";
+                String updateSeats = "UPDATE seats SET seat_status = 'AVAILABLE' WHERE seat_code = ? AND show_id = ?";
                 try (PreparedStatement ps = con.prepareStatement(updateSeats)) {
                     for (String code : codes) {
                         ps.setString(1, code.trim());
-                        ps.setInt(2, bookingId);
+                        ps.setInt(2, showId);
                         ps.addBatch();
                     }
                     ps.executeBatch();
@@ -135,7 +141,7 @@ try (PreparedStatement ps = con.prepareStatement(selectSql)) {
         }
     }
 
-    public List<com.moviebooking.model.MovieBookingDetail> findBookingsByCustomer(String customerName) throws SQLException {
+    public List<MovieBookingDetail> findAllBookings() throws SQLException {
         String sql = """
             SELECT b.booking_id, b.customer_name, m.movie_name,
                    t.theatre_name, s.show_date, s.show_time,
@@ -144,35 +150,51 @@ try (PreparedStatement ps = con.prepareStatement(selectSql)) {
             JOIN movies m ON b.movie_id = m.movie_id
             JOIN shows s ON b.show_id = s.show_id
             JOIN theatres t ON s.theatre_id = t.theatre_id
-            WHERE b.customer_name = ?
-            ORDER BY b.booking_id ASC
+            ORDER BY b.booking_id DESC
             """;
-        List<com.moviebooking.model.MovieBookingDetail> list = new ArrayList<>();
+        List<MovieBookingDetail> list = new ArrayList<>();
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                list.add(mapBooking(rs));
+            }
+        }
+        return list;
+    }
+
+    public List<MovieBookingDetail> findBookingsByCustomer(String customerName) throws SQLException {
+        if (customerName == null || customerName.isBlank()) {
+            return findAllBookings();
+        }
+        String sql = """
+            SELECT b.booking_id, b.customer_name, m.movie_name,
+                   t.theatre_name, s.show_date, s.show_time,
+                   b.seat_codes, b.total_amount, b.booking_status, b.booking_date
+            FROM bookings b
+            JOIN movies m ON b.movie_id = m.movie_id
+            JOIN shows s ON b.show_id = s.show_id
+            JOIN theatres t ON s.theatre_id = t.theatre_id
+            WHERE LOWER(TRIM(b.customer_name)) = LOWER(TRIM(?))
+               OR LOWER(b.customer_name) LIKE LOWER(?)
+            ORDER BY b.booking_id DESC
+            """;
+        List<MovieBookingDetail> list = new ArrayList<>();
         try (Connection con = DBConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
-            ps.setString(1, customerName);
+            String clean = customerName.trim();
+            ps.setString(1, clean);
+            ps.setString(2, "%" + clean + "%");
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    Timestamp ts = rs.getTimestamp("booking_date");
-                    list.add(new com.moviebooking.model.MovieBookingDetail(
-                            rs.getInt("booking_id"),
-                            rs.getString("customer_name"),
-                            rs.getString("movie_name"),
-                            rs.getString("theatre_name"),
-                            rs.getDate("show_date").toLocalDate(),
-                            rs.getTime("show_time").toLocalTime(),
-                            rs.getString("seat_codes"),
-                            rs.getBigDecimal("total_amount"),
-                            rs.getString("booking_status"),
-                            ts != null ? ts.toLocalDateTime() : null
-                    ));
+                    list.add(mapBooking(rs));
                 }
             }
         }
         return list;
     }
 
-    public com.moviebooking.model.MovieBookingDetail findDetailById(int bookingId) throws SQLException {
+    public MovieBookingDetail findDetailById(int bookingId) throws SQLException {
         String sql = """
             SELECT b.booking_id, b.customer_name, m.movie_name,
                    t.theatre_name, s.show_date, s.show_time,
@@ -188,23 +210,26 @@ try (PreparedStatement ps = con.prepareStatement(selectSql)) {
             ps.setInt(1, bookingId);
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    Timestamp ts = rs.getTimestamp("booking_date");
-                    return new com.moviebooking.model.MovieBookingDetail(
-                            rs.getInt("booking_id"),
-                            rs.getString("customer_name"),
-                            rs.getString("movie_name"),
-                            rs.getString("theatre_name"),
-                            rs.getDate("show_date").toLocalDate(),
-                            rs.getTime("show_time").toLocalTime(),
-                            rs.getString("seat_codes"),
-                            rs.getBigDecimal("total_amount"),
-                            rs.getString("booking_status"),
-                            ts != null ? ts.toLocalDateTime() : null
-                    );
+                    return mapBooking(rs);
                 }
             }
         }
         return null;
     }
-}
 
+    private MovieBookingDetail mapBooking(ResultSet rs) throws SQLException {
+        Timestamp ts = rs.getTimestamp("booking_date");
+        return new MovieBookingDetail(
+                rs.getInt("booking_id"),
+                rs.getString("customer_name"),
+                rs.getString("movie_name"),
+                rs.getString("theatre_name"),
+                rs.getDate("show_date").toLocalDate(),
+                rs.getTime("show_time").toLocalTime(),
+                rs.getString("seat_codes"),
+                rs.getBigDecimal("total_amount"),
+                rs.getString("booking_status"),
+                ts != null ? ts.toLocalDateTime() : null
+        );
+    }
+}

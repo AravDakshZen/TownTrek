@@ -16,10 +16,15 @@ public class DistrictEvent {
     private int maxCapacity;
     private int registeredCount;
     private String description;
+    private String city;
 
     public DistrictEvent() {}
 
     public DistrictEvent(int eventId, String title, String category, String venue, String location, LocalDate eventDate, LocalTime eventTime, BigDecimal entryFee, int maxCapacity, int registeredCount, String description) {
+        this(eventId, title, category, venue, location, eventDate, eventTime, entryFee, maxCapacity, registeredCount, description, "Chennai");
+    }
+
+    public DistrictEvent(int eventId, String title, String category, String venue, String location, LocalDate eventDate, LocalTime eventTime, BigDecimal entryFee, int maxCapacity, int registeredCount, String description, String city) {
         this.eventId = eventId;
         this.title = title;
         this.category = category;
@@ -31,6 +36,7 @@ public class DistrictEvent {
         this.maxCapacity = maxCapacity;
         this.registeredCount = registeredCount;
         this.description = description;
+        this.city = city != null && !city.isBlank() ? city : "Chennai";
     }
 
     public int getEventId() { return eventId; }
@@ -67,5 +73,7 @@ public class DistrictEvent {
     public void setDescription(String description) { this.description = description; }
 
     public int getAvailableSlots() { return Math.max(0, maxCapacity - registeredCount); }
-}
 
+    public String getCity() { return city; }
+    public void setCity(String city) { this.city = city; }
+}

@@ -16,11 +16,20 @@ public class TownTrekEvent {
     private final int maxCapacity;
     private final int registeredCount;
     private final String description;
+    private final String city;
 
     public TownTrekEvent(int eventId, String title, String category, String venue,
                          String location, LocalDate eventDate, LocalTime eventTime,
                          BigDecimal entryFee, int maxCapacity, int registeredCount,
                          String description) {
+        this(eventId, title, category, venue, location, eventDate, eventTime,
+             entryFee, maxCapacity, registeredCount, description, "Chennai");
+    }
+
+    public TownTrekEvent(int eventId, String title, String category, String venue,
+                         String location, LocalDate eventDate, LocalTime eventTime,
+                         BigDecimal entryFee, int maxCapacity, int registeredCount,
+                         String description, String city) {
         this.eventId = eventId;
         this.title = title;
         this.category = category;
@@ -32,6 +41,7 @@ public class TownTrekEvent {
         this.maxCapacity = maxCapacity;
         this.registeredCount = registeredCount;
         this.description = description;
+        this.city = (city != null && !city.isBlank()) ? city : "Chennai";
     }
 
     public int getEventId() { return eventId; }
@@ -45,5 +55,6 @@ public class TownTrekEvent {
     public int getMaxCapacity() { return maxCapacity; }
     public int getRegisteredCount() { return registeredCount; }
     public String getDescription() { return description; }
+    public String getCity() { return city; }
     public int getAvailableSlots() { return Math.max(0, maxCapacity - registeredCount); }
 }

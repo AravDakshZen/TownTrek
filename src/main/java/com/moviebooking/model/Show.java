@@ -1,4 +1,3 @@
-
 package com.moviebooking.model;
 
 import java.time.LocalDate;
@@ -13,10 +12,17 @@ public class Show {
     private final int theatreId;
     private final String theatreName;
     private final String theatreLocation;
+    private final String city;
 
     public Show(int showId, int movieId, String movieName,
                 LocalDate showDate, LocalTime showTime,
                 int theatreId, String theatreName, String theatreLocation) {
+        this(showId, movieId, movieName, showDate, showTime, theatreId, theatreName, theatreLocation, "Chennai");
+    }
+
+    public Show(int showId, int movieId, String movieName,
+                LocalDate showDate, LocalTime showTime,
+                int theatreId, String theatreName, String theatreLocation, String city) {
         this.showId = showId;
         this.movieId = movieId;
         this.movieName = movieName;
@@ -25,6 +31,7 @@ public class Show {
         this.theatreId = theatreId;
         this.theatreName = theatreName;
         this.theatreLocation = theatreLocation;
+        this.city = (city != null && !city.isBlank()) ? city : "Chennai";
     }
 
     public int getShowId() { return showId; }
@@ -35,11 +42,12 @@ public class Show {
     public int getTheatreId() { return theatreId; }
     public String getTheatreName() { return theatreName; }
     public String getTheatreLocation() { return theatreLocation; }
+    public String getCity() { return city; }
 
     @Override
     public String toString() {
-        return String.format("%-4d | %-20s | %s | %s | %s | %s",
+        return String.format("%-4d | %-20s | %s | %s | %s (%s)",
                 showId, movieName, showDate, showTime,
-                theatreName, theatreLocation);
+                theatreName, city);
     }
 }

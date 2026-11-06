@@ -14,7 +14,8 @@ public class TownTrekEventDAO {
     public List<TownTrekEvent> findAll() throws SQLException {
         String sql = """
             SELECT event_id, title, category, venue, location,
-                   event_date, event_time, entry_fee, max_capacity, registered_count, description
+                   event_date, event_time, entry_fee, max_capacity, registered_count, description,
+                   COALESCE(city, 'Chennai') AS city
             FROM towntrek_events
             ORDER BY event_id ASC
             """;
@@ -29,10 +30,35 @@ public class TownTrekEventDAO {
         return list;
     }
 
+    public List<TownTrekEvent> findByCity(String city) throws SQLException {
+        String sql = """
+            SELECT event_id, title, category, venue, location,
+                   event_date, event_time, entry_fee, max_capacity, registered_count, description,
+                   COALESCE(city, 'Chennai') AS city
+            FROM towntrek_events
+            WHERE LOWER(city) LIKE LOWER(?) OR LOWER(location) LIKE LOWER(?) OR LOWER(venue) LIKE LOWER(?)
+            ORDER BY event_id ASC
+            """;
+        List<TownTrekEvent> list = new ArrayList<>();
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, "%" + city + "%");
+            ps.setString(2, "%" + city + "%");
+            ps.setString(3, "%" + city + "%");
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapTownTrekEvent(rs));
+                }
+            }
+        }
+        return list;
+    }
+
     public List<TownTrekEvent> findByCategory(String category) throws SQLException {
         String sql = """
             SELECT event_id, title, category, venue, location,
-                   event_date, event_time, entry_fee, max_capacity, registered_count, description
+                   event_date, event_time, entry_fee, max_capacity, registered_count, description,
+                   COALESCE(city, 'Chennai') AS city
             FROM towntrek_events
             WHERE category = ?
             ORDER BY event_id ASC
@@ -53,7 +79,8 @@ public class TownTrekEventDAO {
     public TownTrekEvent findById(int eventId) throws SQLException {
         String sql = """
             SELECT event_id, title, category, venue, location,
-                   event_date, event_time, entry_fee, max_capacity, registered_count, description
+                   event_date, event_time, entry_fee, max_capacity, registered_count, description,
+                   COALESCE(city, 'Chennai') AS city
             FROM towntrek_events
             WHERE event_id = ?
             """;
@@ -67,36 +94,41 @@ public class TownTrekEventDAO {
         return null;
     }
 
-    public int register(String customerName, String userEmail, int eventId, int attendees) throws SQLException {
-        if (attendees <= 0) throw new IllegalArgumentException("Attendees count must be greater than zero.");
+    public int registerAttendees(String customerName, String userEmail, int eventId, int count) throws SQLException {
+        if (count <= 0) throw new IllegalArgumentException("Attendee count must be greater than zero.");
 
         try (Connection con = DBConnection.getConnection()) {
             con.setAutoCommit(false);
             try {
-                String checkSql = "SELECT entry_fee, max_capacity, registered_count FROM towntrek_events WHERE event_id = ? FOR UPDATE";
+                String lockSql = "SELECT entry_fee, max_capacity, registered_count FROM towntrek_events WHERE event_id = ? FOR UPDATE";
                 BigDecimal fee;
                 int maxCap;
-                int regCount;
-                try (PreparedStatement ps = con.prepareStatement(checkSql)) {
+                int registered;
+                try (PreparedStatement ps = con.prepareStatement(lockSql)) {
                     ps.setInt(1, eventId);
                     try (ResultSet rs = ps.executeQuery()) {
-                        if (!rs.next()) throw new SQLException("Event not found with ID: " + eventId);
+                        if (!rs.next()) throw new IllegalArgumentException("Event / workshop ID " + eventId + " not found.");
                         fee = rs.getBigDecimal("entry_fee");
                         maxCap = rs.getInt("max_capacity");
-                        regCount = rs.getInt("registered_count");
+                        registered = rs.getInt("registered_count");
                     }
                 }
 
-                if (regCount + attendees > maxCap) {
-                    int remaining = Math.max(0, maxCap - regCount);
-                    throw new SQLException("Cannot register " + attendees + " attendee(s). Only " + remaining + " spot(s) remaining.");
+                if (registered + count > maxCap) {
+                    int remaining = Math.max(0, maxCap - registered);
+                    throw new IllegalStateException("Capacity exceeded. Only " + remaining + " seat(s) remaining for this workshop.");
                 }
 
-                BigDecimal total = fee.multiply(BigDecimal.valueOf(attendees));
+                String updateSql = "UPDATE towntrek_events SET registered_count = registered_count + ? WHERE event_id = ?";
+                try (PreparedStatement ps = con.prepareStatement(updateSql)) {
+                    ps.setInt(1, count);
+                    ps.setInt(2, eventId);
+                    ps.executeUpdate();
+                }
 
+                BigDecimal totalFee = fee.multiply(BigDecimal.valueOf(count));
                 String insertSql = """
-                    INSERT INTO event_registrations
-                    (customer_name, user_email, event_id, attendee_count, total_fee, status)
+                    INSERT INTO event_registrations (customer_name, user_email, event_id, attendee_count, total_fee, status)
                     VALUES (?, ?, ?, ?, ?, 'CONFIRMED')
                     """;
                 int regId;
@@ -104,20 +136,13 @@ public class TownTrekEventDAO {
                     ps.setString(1, customerName);
                     ps.setString(2, userEmail);
                     ps.setInt(3, eventId);
-                    ps.setInt(4, attendees);
-                    ps.setBigDecimal(5, total);
+                    ps.setInt(4, count);
+                    ps.setBigDecimal(5, totalFee);
                     ps.executeUpdate();
-                    try (ResultSet keys = ps.getGeneratedKeys()) {
-                        if (!keys.next()) throw new SQLException("Could not retrieve registration ID.");
-                        regId = keys.getInt(1);
+                    try (ResultSet rs = ps.getGeneratedKeys()) {
+                        if (rs.next()) regId = rs.getInt(1);
+                        else throw new SQLException("Failed to retrieve generated registration ID.");
                     }
-                }
-
-                String updateSql = "UPDATE towntrek_events SET registered_count = registered_count + ? WHERE event_id = ?";
-                try (PreparedStatement ps = con.prepareStatement(updateSql)) {
-                    ps.setInt(1, attendees);
-                    ps.setInt(2, eventId);
-                    ps.executeUpdate();
                 }
 
                 con.commit();
@@ -131,15 +156,20 @@ public class TownTrekEventDAO {
         }
     }
 
+    public int register(String customerName, String userEmail, int eventId, int attendees) throws SQLException {
+        return registerAttendees(customerName, userEmail, eventId, attendees);
+    }
+
     public List<EventRegistration> findRegistrationsByUser(String userEmail) throws SQLException {
         String sql = """
             SELECT r.reg_id, r.customer_name, r.user_email, r.event_id,
                    e.title, e.venue, e.event_date, e.event_time,
-                   r.attendee_count, r.total_fee, r.status, r.reg_date
+                   r.attendee_count, r.total_fee, r.status,
+                   COALESCE(r.registration_date, CURRENT_TIMESTAMP) AS reg_date
             FROM event_registrations r
             JOIN towntrek_events e ON e.event_id = r.event_id
-            WHERE r.user_email = ?
-            ORDER BY r.reg_id ASC
+            WHERE LOWER(r.user_email) = LOWER(?)
+            ORDER BY r.reg_id DESC
             """;
         List<EventRegistration> list = new ArrayList<>();
         try (Connection con = DBConnection.getConnection();
@@ -158,7 +188,8 @@ public class TownTrekEventDAO {
         String sql = """
             SELECT r.reg_id, r.customer_name, r.user_email, r.event_id,
                    e.title, e.venue, e.event_date, e.event_time,
-                   r.attendee_count, r.total_fee, r.status, r.reg_date
+                   r.attendee_count, r.total_fee, r.status,
+                   COALESCE(r.registration_date, CURRENT_TIMESTAMP) AS reg_date
             FROM event_registrations r
             JOIN towntrek_events e ON e.event_id = r.event_id
             WHERE r.reg_id = ?
@@ -173,23 +204,53 @@ public class TownTrekEventDAO {
         return null;
     }
 
+    public List<TownTrekEvent> search(String keyword) throws SQLException {
+        String sql = """
+            SELECT event_id, title, category, venue, location,
+                   event_date, event_time, entry_fee, max_capacity, registered_count, description,
+                   COALESCE(city, 'Chennai') AS city
+            FROM towntrek_events
+            WHERE LOWER(title) LIKE LOWER(?) OR LOWER(venue) LIKE LOWER(?) OR LOWER(location) LIKE LOWER(?) OR LOWER(city) LIKE LOWER(?)
+            ORDER BY event_id ASC
+            """;
+        String pattern = "%" + keyword + "%";
+        List<TownTrekEvent> list = new ArrayList<>();
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, pattern);
+            ps.setString(2, pattern);
+            ps.setString(3, pattern);
+            ps.setString(4, pattern);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapTownTrekEvent(rs));
+                }
+            }
+        }
+        return list;
+    }
+
     public boolean cancelRegistration(int regId) throws SQLException {
         try (Connection con = DBConnection.getConnection()) {
             con.setAutoCommit(false);
             try {
-                String selectSql = "SELECT event_id, attendee_count, status FROM event_registrations WHERE reg_id = ? FOR UPDATE";
+                String checkSql = "SELECT event_id, attendee_count, status FROM event_registrations WHERE reg_id = ? FOR UPDATE";
                 int eventId;
                 int attendees;
-                try (PreparedStatement ps = con.prepareStatement(selectSql)) {
+                String status;
+                try (PreparedStatement ps = con.prepareStatement(checkSql)) {
                     ps.setInt(1, regId);
                     try (ResultSet rs = ps.executeQuery()) {
-                        if (!rs.next() || !"CONFIRMED".equalsIgnoreCase(rs.getString("status"))) {
-                            con.rollback();
-                            return false;
-                        }
+                        if (!rs.next()) return false;
                         eventId = rs.getInt("event_id");
                         attendees = rs.getInt("attendee_count");
+                        status = rs.getString("status");
                     }
+                }
+
+                if ("CANCELLED".equalsIgnoreCase(status)) {
+                    con.rollback();
+                    return false;
                 }
 
                 String updateReg = "UPDATE event_registrations SET status = 'CANCELLED' WHERE reg_id = ?";
@@ -228,7 +289,8 @@ public class TownTrekEventDAO {
                 rs.getBigDecimal("entry_fee"),
                 rs.getInt("max_capacity"),
                 rs.getInt("registered_count"),
-                rs.getString("description")
+                rs.getString("description"),
+                rs.getString("city")
         );
     }
 

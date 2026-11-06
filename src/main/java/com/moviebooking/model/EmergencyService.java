@@ -9,10 +9,17 @@ public class EmergencyService {
     private final String address;
     private final boolean is247;
     private final String notes;
+    private final String city;
 
     public EmergencyService(int serviceId, String serviceName, String category,
                             String phoneNumber, String alternateNumber, String address,
                             boolean is247, String notes) {
+        this(serviceId, serviceName, category, phoneNumber, alternateNumber, address, is247, notes, "Chennai");
+    }
+
+    public EmergencyService(int serviceId, String serviceName, String category,
+                            String phoneNumber, String alternateNumber, String address,
+                            boolean is247, String notes, String city) {
         this.serviceId = serviceId;
         this.serviceName = serviceName;
         this.category = category;
@@ -21,6 +28,7 @@ public class EmergencyService {
         this.address = address;
         this.is247 = is247;
         this.notes = notes;
+        this.city = city != null ? city : "Chennai";
     }
 
     public int getServiceId() { return serviceId; }
@@ -31,4 +39,5 @@ public class EmergencyService {
     public String getAddress() { return address; }
     public boolean is247() { return is247; }
     public String getNotes() { return notes; }
+    public String getCity() { return city; }
 }

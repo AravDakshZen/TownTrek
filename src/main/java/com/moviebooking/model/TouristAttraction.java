@@ -11,10 +11,17 @@ public class TouristAttraction {
     private final BigDecimal entryFee;
     private final String highlights;
     private final String bestTimeToVisit;
+    private final String city;
 
     public TouristAttraction(int attractionId, String name, String category, String location,
                              String openingHours, BigDecimal entryFee, String highlights,
                              String bestTimeToVisit) {
+        this(attractionId, name, category, location, openingHours, entryFee, highlights, bestTimeToVisit, "Chennai");
+    }
+
+    public TouristAttraction(int attractionId, String name, String category, String location,
+                             String openingHours, BigDecimal entryFee, String highlights,
+                             String bestTimeToVisit, String city) {
         this.attractionId = attractionId;
         this.name = name;
         this.category = category;
@@ -23,6 +30,7 @@ public class TouristAttraction {
         this.entryFee = entryFee;
         this.highlights = highlights;
         this.bestTimeToVisit = bestTimeToVisit;
+        this.city = (city != null && !city.isBlank()) ? city : "Chennai";
     }
 
     public int getAttractionId() { return attractionId; }
@@ -33,4 +41,5 @@ public class TouristAttraction {
     public BigDecimal getEntryFee() { return entryFee; }
     public String getHighlights() { return highlights; }
     public String getBestTimeToVisit() { return bestTimeToVisit; }
+    public String getCity() { return city; }
 }

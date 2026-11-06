@@ -21,7 +21,8 @@ public class ShowDAO {
         String sql = """
             SELECT s.show_id, s.movie_id, m.movie_name,
                    s.show_date, s.show_time,
-                   t.theatre_id, t.theatre_name, t.location
+                   t.theatre_id, t.theatre_name, t.location,
+                   COALESCE(t.city, 'Chennai') AS city
             FROM shows s
             JOIN movies m ON m.movie_id = s.movie_id
             JOIN theatres t ON t.theatre_id = s.theatre_id
@@ -35,7 +36,8 @@ public class ShowDAO {
                 rs.getTime("show_time").toLocalTime(),
                 rs.getInt("theatre_id"),
                 rs.getString("theatre_name"),
-                rs.getString("location")
+                rs.getString("location"),
+                rs.getString("city")
         ));
     }
 
@@ -43,7 +45,8 @@ public class ShowDAO {
         String sql = """
             SELECT s.show_id, s.movie_id, m.movie_name,
                    s.show_date, s.show_time,
-                   t.theatre_id, t.theatre_name, t.location
+                   t.theatre_id, t.theatre_name, t.location,
+                   COALESCE(t.city, 'Chennai') AS city
             FROM shows s
             JOIN movies m ON m.movie_id = s.movie_id
             JOIN theatres t ON t.theatre_id = s.theatre_id
@@ -57,7 +60,8 @@ public class ShowDAO {
                 rs.getTime("show_time").toLocalTime(),
                 rs.getInt("theatre_id"),
                 rs.getString("theatre_name"),
-                rs.getString("location")
+                rs.getString("location"),
+                rs.getString("city")
         ), showId);
         return list.isEmpty() ? null : list.get(0);
     }
@@ -66,7 +70,8 @@ public class ShowDAO {
         String sql = """
             SELECT s.show_id, s.movie_id, m.movie_name,
                    s.show_date, s.show_time,
-                   t.theatre_id, t.theatre_name, t.location
+                   t.theatre_id, t.theatre_name, t.location,
+                   COALESCE(t.city, 'Chennai') AS city
             FROM shows s
             JOIN movies m ON m.movie_id = s.movie_id
             JOIN theatres t ON t.theatre_id = s.theatre_id
@@ -81,7 +86,8 @@ public class ShowDAO {
                 rs.getTime("show_time").toLocalTime(),
                 rs.getInt("theatre_id"),
                 rs.getString("theatre_name"),
-                rs.getString("location")
+                rs.getString("location"),
+                rs.getString("city")
         ), movieId);
     }
 
@@ -112,7 +118,8 @@ public class ShowDAO {
         String sql = """
             SELECT s.show_id, s.movie_id, m.movie_name,
                    s.show_date, s.show_time,
-                   t.theatre_id, t.theatre_name, t.location
+                   t.theatre_id, t.theatre_name, t.location,
+                   COALESCE(t.city, 'Chennai') AS city
             FROM shows s
             JOIN movies m ON m.movie_id = s.movie_id
             JOIN theatres t ON t.theatre_id = s.theatre_id
@@ -129,8 +136,8 @@ public class ShowDAO {
                 rs.getTime("show_time").toLocalTime(),
                 rs.getInt("theatre_id"),
                 rs.getString("theatre_name"),
-                rs.getString("location")
+                rs.getString("location"),
+                rs.getString("city")
         ), movieName, Date.valueOf(date), theatreName);
     }
 }
-

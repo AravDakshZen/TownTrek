@@ -14,7 +14,8 @@ public class TouristAttractionDAO {
 
     public List<TouristAttraction> findAll() throws SQLException {
         String sql = """
-            SELECT attraction_id, name, category, location, opening_hours, entry_fee, highlights, best_time_to_visit
+            SELECT attraction_id, name, category, location, opening_hours, entry_fee, highlights, best_time_to_visit,
+                   COALESCE(city, 'Chennai') AS city
             FROM tourist_attractions
             ORDER BY attraction_id ASC
             """;
@@ -29,9 +30,32 @@ public class TouristAttractionDAO {
         return list;
     }
 
+    public List<TouristAttraction> findByCity(String city) throws SQLException {
+        String sql = """
+            SELECT attraction_id, name, category, location, opening_hours, entry_fee, highlights, best_time_to_visit,
+                   COALESCE(city, 'Chennai') AS city
+            FROM tourist_attractions
+            WHERE LOWER(city) LIKE LOWER(?) OR LOWER(location) LIKE LOWER(?)
+            ORDER BY attraction_id ASC
+            """;
+        List<TouristAttraction> list = new ArrayList<>();
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, "%" + city + "%");
+            ps.setString(2, "%" + city + "%");
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapAttraction(rs));
+                }
+            }
+        }
+        return list;
+    }
+
     public List<TouristAttraction> findByCategory(String category) throws SQLException {
         String sql = """
-            SELECT attraction_id, name, category, location, opening_hours, entry_fee, highlights, best_time_to_visit
+            SELECT attraction_id, name, category, location, opening_hours, entry_fee, highlights, best_time_to_visit,
+                   COALESCE(city, 'Chennai') AS city
             FROM tourist_attractions
             WHERE category = ?
             ORDER BY attraction_id ASC
@@ -51,7 +75,8 @@ public class TouristAttractionDAO {
 
     public TouristAttraction findById(int id) throws SQLException {
         String sql = """
-            SELECT attraction_id, name, category, location, opening_hours, entry_fee, highlights, best_time_to_visit
+            SELECT attraction_id, name, category, location, opening_hours, entry_fee, highlights, best_time_to_visit,
+                   COALESCE(city, 'Chennai') AS city
             FROM tourist_attractions
             WHERE attraction_id = ?
             """;
@@ -67,18 +92,20 @@ public class TouristAttractionDAO {
 
     public List<TouristAttraction> search(String keyword) throws SQLException {
         String sql = """
-            SELECT attraction_id, name, category, location, opening_hours, entry_fee, highlights, best_time_to_visit
+            SELECT attraction_id, name, category, location, opening_hours, entry_fee, highlights, best_time_to_visit,
+                   COALESCE(city, 'Chennai') AS city
             FROM tourist_attractions
-            WHERE name LIKE ? OR location LIKE ? OR highlights LIKE ?
+            WHERE LOWER(name) LIKE LOWER(?) OR LOWER(location) LIKE LOWER(?) OR LOWER(highlights) LIKE LOWER(?) OR LOWER(city) LIKE LOWER(?)
             ORDER BY attraction_id ASC
             """;
+        String pattern = "%" + keyword + "%";
         List<TouristAttraction> list = new ArrayList<>();
         try (Connection con = DBConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
-            String pattern = "%" + keyword + "%";
             ps.setString(1, pattern);
             ps.setString(2, pattern);
             ps.setString(3, pattern);
+            ps.setString(4, pattern);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     list.add(mapAttraction(rs));
@@ -97,7 +124,8 @@ public class TouristAttractionDAO {
                 rs.getString("opening_hours"),
                 rs.getBigDecimal("entry_fee"),
                 rs.getString("highlights"),
-                rs.getString("best_time_to_visit")
+                rs.getString("best_time_to_visit"),
+                rs.getString("city")
         );
     }
 }

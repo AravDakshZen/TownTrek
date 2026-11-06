@@ -17,7 +17,8 @@ public class CitySpotDAO {
 
     public List<CitySpot> findAll() {
         String sql = """
-            SELECT spot_id, name, spot_type, cuisine_or_specialty, price_range, address, rating, contact_number, timings
+            SELECT spot_id, name, spot_type, cuisine_or_specialty, price_range, address, rating, contact_number, timings,
+                   COALESCE(city, 'Chennai') AS city
             FROM city_spots
             ORDER BY spot_id ASC
             """;
@@ -30,13 +31,15 @@ public class CitySpotDAO {
                 rs.getString("address"),
                 rs.getBigDecimal("rating"),
                 rs.getString("contact_number"),
-                rs.getString("timings")
+                rs.getString("timings"),
+                rs.getString("city")
         ));
     }
 
     public List<CitySpot> findByType(String spotType) {
         String sql = """
-            SELECT spot_id, name, spot_type, cuisine_or_specialty, price_range, address, rating, contact_number, timings
+            SELECT spot_id, name, spot_type, cuisine_or_specialty, price_range, address, rating, contact_number, timings,
+                   COALESCE(city, 'Chennai') AS city
             FROM city_spots
             WHERE spot_type = ?
             ORDER BY spot_id ASC
@@ -50,13 +53,15 @@ public class CitySpotDAO {
                 rs.getString("address"),
                 rs.getBigDecimal("rating"),
                 rs.getString("contact_number"),
-                rs.getString("timings")
+                rs.getString("timings"),
+                rs.getString("city")
         ), spotType);
     }
 
     public CitySpot findById(int id) {
         String sql = """
-            SELECT spot_id, name, spot_type, cuisine_or_specialty, price_range, address, rating, contact_number, timings
+            SELECT spot_id, name, spot_type, cuisine_or_specialty, price_range, address, rating, contact_number, timings,
+                   COALESCE(city, 'Chennai') AS city
             FROM city_spots
             WHERE spot_id = ?
             """;
@@ -69,14 +74,16 @@ public class CitySpotDAO {
                 rs.getString("address"),
                 rs.getBigDecimal("rating"),
                 rs.getString("contact_number"),
-                rs.getString("timings")
+                rs.getString("timings"),
+                rs.getString("city")
         ), id);
         return list.isEmpty() ? null : list.get(0);
     }
 
     public List<CitySpot> search(String keyword) {
         String sql = """
-            SELECT spot_id, name, spot_type, cuisine_or_specialty, price_range, address, rating, contact_number, timings
+            SELECT spot_id, name, spot_type, cuisine_or_specialty, price_range, address, rating, contact_number, timings,
+                   COALESCE(city, 'Chennai') AS city
             FROM city_spots
             WHERE name LIKE ? OR cuisine_or_specialty LIKE ? OR address LIKE ?
             ORDER BY spot_id ASC
@@ -91,8 +98,8 @@ public class CitySpotDAO {
                 rs.getString("address"),
                 rs.getBigDecimal("rating"),
                 rs.getString("contact_number"),
-                rs.getString("timings")
+                rs.getString("timings"),
+                rs.getString("city")
         ), pattern, pattern, pattern);
     }
 }
-

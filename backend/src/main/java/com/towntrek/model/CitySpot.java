@@ -12,10 +12,15 @@ public class CitySpot {
     private BigDecimal rating;
     private String contactNumber;
     private String timings;
+    private String city;
 
     public CitySpot() {}
 
     public CitySpot(int spotId, String name, String spotType, String cuisineOrSpecialty, String priceRange, String address, BigDecimal rating, String contactNumber, String timings) {
+        this(spotId, name, spotType, cuisineOrSpecialty, priceRange, address, rating, contactNumber, timings, "Chennai");
+    }
+
+    public CitySpot(int spotId, String name, String spotType, String cuisineOrSpecialty, String priceRange, String address, BigDecimal rating, String contactNumber, String timings, String city) {
         this.spotId = spotId;
         this.name = name;
         this.spotType = spotType;
@@ -25,6 +30,7 @@ public class CitySpot {
         this.rating = rating;
         this.contactNumber = contactNumber;
         this.timings = timings;
+        this.city = city != null && !city.isBlank() ? city : "Chennai";
     }
 
     public int getSpotId() { return spotId; }
@@ -53,5 +59,7 @@ public class CitySpot {
 
     public String getTimings() { return timings; }
     public void setTimings(String timings) { this.timings = timings; }
-}
 
+    public String getCity() { return city; }
+    public void setCity(String city) { this.city = city; }
+}

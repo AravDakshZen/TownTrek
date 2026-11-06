@@ -14,7 +14,8 @@ public class CitySpotDAO {
 
     public List<CitySpot> findAll() throws SQLException {
         String sql = """
-            SELECT spot_id, name, spot_type, cuisine_or_specialty, price_range, address, rating, contact_number, timings
+            SELECT spot_id, name, spot_type, cuisine_or_specialty, price_range, address, rating, contact_number, timings,
+                   COALESCE(city, 'Chennai') AS city
             FROM city_spots
             ORDER BY spot_id ASC
             """;
@@ -29,9 +30,32 @@ public class CitySpotDAO {
         return list;
     }
 
+    public List<CitySpot> findByCity(String city) throws SQLException {
+        String sql = """
+            SELECT spot_id, name, spot_type, cuisine_or_specialty, price_range, address, rating, contact_number, timings,
+                   COALESCE(city, 'Chennai') AS city
+            FROM city_spots
+            WHERE LOWER(city) LIKE LOWER(?) OR LOWER(address) LIKE LOWER(?)
+            ORDER BY spot_id ASC
+            """;
+        List<CitySpot> list = new ArrayList<>();
+        try (Connection con = DBConnection.getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+            ps.setString(1, "%" + city + "%");
+            ps.setString(2, "%" + city + "%");
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    list.add(mapSpot(rs));
+                }
+            }
+        }
+        return list;
+    }
+
     public List<CitySpot> findByType(String spotType) throws SQLException {
         String sql = """
-            SELECT spot_id, name, spot_type, cuisine_or_specialty, price_range, address, rating, contact_number, timings
+            SELECT spot_id, name, spot_type, cuisine_or_specialty, price_range, address, rating, contact_number, timings,
+                   COALESCE(city, 'Chennai') AS city
             FROM city_spots
             WHERE spot_type = ?
             ORDER BY spot_id ASC
@@ -51,7 +75,8 @@ public class CitySpotDAO {
 
     public CitySpot findById(int id) throws SQLException {
         String sql = """
-            SELECT spot_id, name, spot_type, cuisine_or_specialty, price_range, address, rating, contact_number, timings
+            SELECT spot_id, name, spot_type, cuisine_or_specialty, price_range, address, rating, contact_number, timings,
+                   COALESCE(city, 'Chennai') AS city
             FROM city_spots
             WHERE spot_id = ?
             """;
@@ -67,18 +92,20 @@ public class CitySpotDAO {
 
     public List<CitySpot> search(String keyword) throws SQLException {
         String sql = """
-            SELECT spot_id, name, spot_type, cuisine_or_specialty, price_range, address, rating, contact_number, timings
+            SELECT spot_id, name, spot_type, cuisine_or_specialty, price_range, address, rating, contact_number, timings,
+                   COALESCE(city, 'Chennai') AS city
             FROM city_spots
-            WHERE name LIKE ? OR cuisine_or_specialty LIKE ? OR address LIKE ?
+            WHERE LOWER(name) LIKE LOWER(?) OR LOWER(cuisine_or_specialty) LIKE LOWER(?) OR LOWER(address) LIKE LOWER(?) OR LOWER(city) LIKE LOWER(?)
             ORDER BY spot_id ASC
             """;
+        String pattern = "%" + keyword + "%";
         List<CitySpot> list = new ArrayList<>();
         try (Connection con = DBConnection.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
-            String pattern = "%" + keyword + "%";
             ps.setString(1, pattern);
             ps.setString(2, pattern);
             ps.setString(3, pattern);
+            ps.setString(4, pattern);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
                     list.add(mapSpot(rs));
@@ -98,7 +125,8 @@ public class CitySpotDAO {
                 rs.getString("address"),
                 rs.getBigDecimal("rating"),
                 rs.getString("contact_number"),
-                rs.getString("timings")
+                rs.getString("timings"),
+                rs.getString("city")
         );
     }
 }

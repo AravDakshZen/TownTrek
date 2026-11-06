@@ -26,9 +26,10 @@ public class HealthController {
         status.put("service", "TownTrek Full-Stack Backend");
 
         try {
+            String db = jdbcTemplate.queryForObject("SELECT DATABASE()", String.class);
             Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM movies", Integer.class);
             status.put("database", "CONNECTED");
-            status.put("databaseName", "movie_booking_db");
+            status.put("databaseName", db != null ? db : "towntrek_db");
             status.put("moviesCount", count);
         } catch (Exception e) {
             status.put("database", "DISCONNECTED: " + e.getMessage());
@@ -37,4 +38,3 @@ public class HealthController {
         return ResponseEntity.ok(status);
     }
 }
-

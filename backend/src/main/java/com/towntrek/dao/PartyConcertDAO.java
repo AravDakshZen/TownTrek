@@ -12,7 +12,7 @@ import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Timestamp;
-import java.util.List;
+import java.util.*;
 
 @Repository
 public class PartyConcertDAO {
@@ -26,7 +26,8 @@ public class PartyConcertDAO {
     public List<PartyConcert> findAll() {
         String sql = """
             SELECT event_id, title, category, artist_performer, venue, location,
-                   event_date, event_time, ticket_price, total_capacity, available_slots, description
+                   event_date, event_time, ticket_price, total_capacity, available_slots, description,
+                   COALESCE(city, 'Chennai') AS city
             FROM parties_concerts
             ORDER BY event_id ASC
             """;
@@ -42,14 +43,16 @@ public class PartyConcertDAO {
                 rs.getBigDecimal("ticket_price"),
                 rs.getInt("total_capacity"),
                 rs.getInt("available_slots"),
-                rs.getString("description")
+                rs.getString("description"),
+                rs.getString("city")
         ));
     }
 
     public List<PartyConcert> findByCategory(String category) {
         String sql = """
             SELECT event_id, title, category, artist_performer, venue, location,
-                   event_date, event_time, ticket_price, total_capacity, available_slots, description
+                   event_date, event_time, ticket_price, total_capacity, available_slots, description,
+                   COALESCE(city, 'Chennai') AS city
             FROM parties_concerts
             WHERE category = ?
             ORDER BY event_id ASC
@@ -66,14 +69,16 @@ public class PartyConcertDAO {
                 rs.getBigDecimal("ticket_price"),
                 rs.getInt("total_capacity"),
                 rs.getInt("available_slots"),
-                rs.getString("description")
+                rs.getString("description"),
+                rs.getString("city")
         ), category);
     }
 
     public PartyConcert findById(int eventId) {
         String sql = """
             SELECT event_id, title, category, artist_performer, venue, location,
-                   event_date, event_time, ticket_price, total_capacity, available_slots, description
+                   event_date, event_time, ticket_price, total_capacity, available_slots, description,
+                   COALESCE(city, 'Chennai') AS city
             FROM parties_concerts
             WHERE event_id = ?
             """;
@@ -89,7 +94,8 @@ public class PartyConcertDAO {
                 rs.getBigDecimal("ticket_price"),
                 rs.getInt("total_capacity"),
                 rs.getInt("available_slots"),
-                rs.getString("description")
+                rs.getString("description"),
+                rs.getString("city")
         ), eventId);
         return list.isEmpty() ? null : list.get(0);
     }
@@ -138,72 +144,162 @@ public class PartyConcertDAO {
     }
 
     public List<PartyBooking> findAllBookings() {
-        String sql = """
-            SELECT b.booking_id, b.customer_name, b.user_email, b.event_id,
-                   e.title, e.artist_performer, e.venue, e.event_date, e.event_time,
-                   b.tickets_count, b.total_amount, b.booking_status, b.booking_date
-            FROM party_bookings b
-            JOIN parties_concerts e ON e.event_id = b.event_id
-            ORDER BY b.booking_id DESC
-            """;
-        return jdbcTemplate.query(sql, (rs, rowNum) -> {
-            Timestamp ts = rs.getTimestamp("booking_date");
-            return new PartyBooking(
-                    rs.getInt("booking_id"),
-                    rs.getString("customer_name"),
-                    rs.getString("user_email"),
-                    rs.getInt("event_id"),
-                    rs.getString("title"),
-                    rs.getString("artist_performer"),
-                    rs.getString("venue"),
-                    rs.getDate("event_date").toLocalDate(),
-                    rs.getTime("event_time").toLocalTime(),
-                    rs.getInt("tickets_count"),
-                    rs.getBigDecimal("total_amount"),
-                    rs.getString("booking_status"),
-                    ts != null ? ts.toLocalDateTime() : null
-            );
-        });
+        try {
+            String sql = """
+                SELECT b.booking_id, b.customer_name, b.user_email, b.event_id,
+                       e.title, e.artist_performer, e.venue, e.event_date, e.event_time,
+                       b.tickets_count, b.total_amount, b.booking_status, b.booking_date
+                FROM party_bookings b
+                JOIN parties_concerts e ON e.event_id = b.event_id
+                ORDER BY b.booking_id DESC
+                """;
+            return jdbcTemplate.query(sql, (rs, rowNum) -> {
+                Timestamp ts = rs.getTimestamp("booking_date");
+                return new PartyBooking(
+                        rs.getInt("booking_id"),
+                        rs.getString("customer_name"),
+                        rs.getString("user_email"),
+                        rs.getInt("event_id"),
+                        rs.getString("title"),
+                        rs.getString("artist_performer"),
+                        rs.getString("venue"),
+                        rs.getDate("event_date").toLocalDate(),
+                        rs.getTime("event_time").toLocalTime(),
+                        rs.getInt("tickets_count"),
+                        rs.getBigDecimal("total_amount"),
+                        rs.getString("booking_status"),
+                        ts != null ? ts.toLocalDateTime() : null
+                );
+            });
+        } catch (Exception ex) {
+            return Collections.emptyList();
+        }
     }
 
     public List<PartyBooking> findBookingsByUserOrName(String userEmail, String customerName) {
-        String sql = """
-            SELECT b.booking_id, b.customer_name, b.user_email, b.event_id,
-                   e.title, e.artist_performer, e.venue, e.event_date, e.event_time,
-                   b.tickets_count, b.total_amount, b.booking_status, b.booking_date
-            FROM party_bookings b
-            JOIN parties_concerts e ON e.event_id = b.event_id
-            WHERE LOWER(TRIM(b.user_email)) = LOWER(TRIM(?))
-               OR LOWER(TRIM(b.customer_name)) = LOWER(TRIM(?))
-               OR LOWER(b.customer_name) LIKE LOWER(?)
-            ORDER BY b.booking_id DESC
-            """;
-        String emailQuery = userEmail != null ? userEmail.trim() : "";
-        String nameQuery = customerName != null ? customerName.trim() : "";
-        String wildcardName = "%" + (nameQuery.isEmpty() ? emailQuery : nameQuery) + "%";
+        try {
+            String sql = """
+                SELECT b.booking_id, b.customer_name, b.user_email, b.event_id,
+                       e.title, e.artist_performer, e.venue, e.event_date, e.event_time,
+                       b.tickets_count, b.total_amount, b.booking_status, b.booking_date
+                FROM party_bookings b
+                JOIN parties_concerts e ON e.event_id = b.event_id
+                WHERE LOWER(TRIM(b.user_email)) = LOWER(TRIM(?))
+                   OR LOWER(TRIM(b.customer_name)) = LOWER(TRIM(?))
+                   OR LOWER(b.customer_name) LIKE LOWER(?)
+                ORDER BY b.booking_id DESC
+                """;
+            String emailQuery = userEmail != null ? userEmail.trim() : "";
+            String nameQuery = customerName != null ? customerName.trim() : "";
+            String wildcardName = "%" + (nameQuery.isEmpty() ? emailQuery : nameQuery) + "%";
 
-        return jdbcTemplate.query(sql, (rs, rowNum) -> {
-            Timestamp ts = rs.getTimestamp("booking_date");
-            return new PartyBooking(
-                    rs.getInt("booking_id"),
-                    rs.getString("customer_name"),
-                    rs.getString("user_email"),
-                    rs.getInt("event_id"),
-                    rs.getString("title"),
-                    rs.getString("artist_performer"),
-                    rs.getString("venue"),
-                    rs.getDate("event_date").toLocalDate(),
-                    rs.getTime("event_time").toLocalTime(),
-                    rs.getInt("tickets_count"),
-                    rs.getBigDecimal("total_amount"),
-                    rs.getString("booking_status"),
-                    ts != null ? ts.toLocalDateTime() : null
-            );
-        }, emailQuery, nameQuery, wildcardName);
+            return jdbcTemplate.query(sql, (rs, rowNum) -> {
+                Timestamp ts = rs.getTimestamp("booking_date");
+                return new PartyBooking(
+                        rs.getInt("booking_id"),
+                        rs.getString("customer_name"),
+                        rs.getString("user_email"),
+                        rs.getInt("event_id"),
+                        rs.getString("title"),
+                        rs.getString("artist_performer"),
+                        rs.getString("venue"),
+                        rs.getDate("event_date").toLocalDate(),
+                        rs.getTime("event_time").toLocalTime(),
+                        rs.getInt("tickets_count"),
+                        rs.getBigDecimal("total_amount"),
+                        rs.getString("booking_status"),
+                        ts != null ? ts.toLocalDateTime() : null
+                );
+            }, emailQuery, nameQuery, wildcardName);
+        } catch (Exception ex) {
+            return Collections.emptyList();
+        }
     }
 
     public List<PartyBooking> findBookingsByUser(String userEmail) {
         return findBookingsByUserOrName(userEmail, "");
+    }
+
+    public List<PartyBooking> findBookingsForUser(List<String> names, List<String> emails, List<Integer> specificIds) {
+        List<PartyBooking> all = findAllBookings();
+        if (all.isEmpty()) return all;
+
+        Set<Integer> targetIds = new HashSet<>(specificIds != null ? specificIds : Collections.emptyList());
+
+        Set<String> cleanEmails = new HashSet<>();
+        if (emails != null) {
+            for (String e : emails) {
+                if (e != null && !e.isBlank()) cleanEmails.add(e.trim().toLowerCase());
+            }
+        }
+
+        Set<String> cleanNames = new HashSet<>();
+        if (names != null) {
+            for (String n : names) {
+                if (n != null && !n.isBlank()) {
+                    String clean = n.trim().toLowerCase();
+                    cleanNames.add(clean);
+                    String[] tokens = clean.split("[\\s_.-]+");
+                    for (String token : tokens) {
+                        if (token.length() >= 3) {
+                            cleanNames.add(token);
+                        }
+                    }
+                }
+            }
+        }
+
+        List<PartyBooking> matched = new ArrayList<>();
+        for (PartyBooking b : all) {
+            boolean isMatch = false;
+
+            // 1. Direct ID match from booking receipt or local storage
+            if (targetIds.contains(b.getBookingId())) {
+                isMatch = true;
+            }
+
+            // 2. Email match
+            if (!isMatch && b.getUserEmail() != null && !b.getUserEmail().isBlank()) {
+                String bEmail = b.getUserEmail().trim().toLowerCase();
+                if (cleanEmails.contains(bEmail)) {
+                    isMatch = true;
+                }
+            }
+
+            // 3. Name or Email substring match
+            if (!isMatch && b.getCustomerName() != null && !b.getCustomerName().isBlank()) {
+                String bName = b.getCustomerName().trim().toLowerCase();
+
+                if (cleanNames.contains(bName) || cleanEmails.contains(bName)) {
+                    isMatch = true;
+                }
+
+                if (!isMatch) {
+                    for (String queryName : cleanNames) {
+                        if (bName.contains(queryName) || queryName.contains(bName)) {
+                            isMatch = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!isMatch) {
+                    for (String email : cleanEmails) {
+                        String prefix = email.split("@")[0];
+                        if (prefix.length() >= 3 && (bName.contains(prefix) || prefix.contains(bName))) {
+                            isMatch = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (isMatch) {
+                matched.add(b);
+            }
+        }
+
+        return matched;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -212,11 +308,15 @@ public class PartyConcertDAO {
         List<PartyCancelInfo> list = jdbcTemplate.query(selectSql, (rs, rowNum) ->
                 new PartyCancelInfo(rs.getInt("event_id"), rs.getInt("tickets_count"), rs.getString("booking_status")), bookingId);
 
-        if (list.isEmpty() || !"CONFIRMED".equalsIgnoreCase(list.get(0).status)) {
+        if (list.isEmpty()) {
             return false;
         }
 
         PartyCancelInfo info = list.get(0);
+        if ("CANCELLED".equalsIgnoreCase(info.status)) {
+            return true;
+        }
+
         jdbcTemplate.update("UPDATE party_bookings SET booking_status = 'CANCELLED' WHERE booking_id = ?", bookingId);
         jdbcTemplate.update("UPDATE parties_concerts SET available_slots = available_slots + ? WHERE event_id = ?", info.tickets, info.eventId);
 

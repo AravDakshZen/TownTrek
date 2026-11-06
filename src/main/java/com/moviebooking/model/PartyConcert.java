@@ -17,10 +17,19 @@ public class PartyConcert {
     private final int totalCapacity;
     private final int availableSlots;
     private final String description;
+    private final String city;
 
     public PartyConcert(int eventId, String title, String category, String artistPerformer,
                         String venue, String location, LocalDate eventDate, LocalTime eventTime,
                         BigDecimal ticketPrice, int totalCapacity, int availableSlots, String description) {
+        this(eventId, title, category, artistPerformer, venue, location, eventDate, eventTime,
+             ticketPrice, totalCapacity, availableSlots, description, "Chennai");
+    }
+
+    public PartyConcert(int eventId, String title, String category, String artistPerformer,
+                        String venue, String location, LocalDate eventDate, LocalTime eventTime,
+                        BigDecimal ticketPrice, int totalCapacity, int availableSlots, String description,
+                        String city) {
         this.eventId = eventId;
         this.title = title;
         this.category = category;
@@ -33,6 +42,7 @@ public class PartyConcert {
         this.totalCapacity = totalCapacity;
         this.availableSlots = availableSlots;
         this.description = description;
+        this.city = (city != null && !city.isBlank()) ? city : "Chennai";
     }
 
     public int getEventId() { return eventId; }
@@ -47,4 +57,5 @@ public class PartyConcert {
     public int getTotalCapacity() { return totalCapacity; }
     public int getAvailableSlots() { return availableSlots; }
     public String getDescription() { return description; }
+    public String getCity() { return city; }
 }

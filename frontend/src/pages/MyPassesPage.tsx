@@ -1,23 +1,25 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Ticket, Film, Music, Calendar, CheckCircle2, RotateCcw, AlertCircle, LogIn } from 'lucide-react';
+import { Ticket, Film, Music, Calendar, LogIn, RefreshCw, Eye, Sparkles, Layers } from 'lucide-react';
 import api from '../services/api';
 import { MovieBookingDetail, PartyBooking, EventRegistration } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
+import { AnimatedTicket } from '../components/ui/ticket-confirmation-card';
 
 export const MyPassesPage: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
 
   const [movieBookings, setMovieBookings] = useState<MovieBookingDetail[]>([]);
   const [partyBookings, setPartyBookings] = useState<PartyBooking[]>([]);
   const [eventRegistrations, setEventRegistrations] = useState<EventRegistration[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'MOVIES' | 'PARTIES' | 'EVENTS'>('MOVIES');
-  const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'ALL' | 'MOVIES' | 'PARTIES' | 'EVENTS'>('ALL');
+  const [showAllDistrictPasses, setShowAllDistrictPasses] = useState(false);
 
   const fetchPasses = () => {
-    // If not authenticated or registered, strictly show 0 passes
     if (!isAuthenticated || !user) {
       setMovieBookings([]);
       setPartyBookings([]);
@@ -27,10 +29,28 @@ export const MyPassesPage: React.FC = () => {
     }
 
     setLoading(true);
-    // Fetch only the passes belonging to the signed-in user
     const params = new URLSearchParams();
-    if (user.fullName) params.append('name', user.fullName);
-    if (user.email) params.append('email', user.email);
+
+    if (showAllDistrictPasses) {
+      params.append('all', 'true');
+    } else {
+      if (user.fullName) params.append('name', user.fullName);
+      if (user.email) params.append('email', user.email);
+
+      const altName = localStorage.getItem('towntrek_last_booking_name');
+      const altEmail = localStorage.getItem('towntrek_last_booking_email');
+      if (altName && altName !== user.fullName) params.append('altName', altName);
+      if (altEmail && altEmail !== user.email) params.append('altEmail', altEmail);
+
+      try {
+        const movieIds = JSON.parse(localStorage.getItem('towntrek_booked_movie_ids') || '[]');
+        if (movieIds.length) params.append('movieIds', movieIds.join(','));
+        const partyIds = JSON.parse(localStorage.getItem('towntrek_booked_party_ids') || '[]');
+        if (partyIds.length) params.append('partyIds', partyIds.join(','));
+        const eventIds = JSON.parse(localStorage.getItem('towntrek_booked_event_ids') || '[]');
+        if (eventIds.length) params.append('eventIds', eventIds.join(','));
+      } catch (_) {}
+    }
 
     api.get(`/passes/all?${params.toString()}`)
       .then((res) => {
@@ -46,205 +66,388 @@ export const MyPassesPage: React.FC = () => {
 
   useEffect(() => {
     fetchPasses();
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, showAllDistrictPasses]);
 
   const handleCancelMovie = async (bookingId: number) => {
-    if (!window.confirm(`Are you sure you want to cancel Movie Booking #${bookingId}?`)) return;
+    if (!window.confirm('Are you sure you want to cancel this cinema ticket?')) return;
     try {
-      await api.delete(`/movies/bookings/${bookingId}`);
-      setActionMessage(`Movie Booking #${bookingId} successfully cancelled.`);
-      fetchPasses();
+      let res;
+      try {
+        res = await api.post(`/passes/movies/${bookingId}/cancel`);
+      } catch {
+        res = await api.post(`/movies/cancel/${bookingId}`);
+      }
+      if (res.data?.success) {
+        toast.success('Cinema Pass Cancelled', 'Seats have been released back to availability.');
+        fetchPasses();
+      } else {
+        toast.error('Cancellation Failed', res.data?.message || 'Unable to cancel pass.');
+      }
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to cancel movie booking.');
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Failed to cancel movie pass.';
+      toast.error('Error', msg);
     }
   };
 
   const handleCancelParty = async (bookingId: number) => {
-    if (!window.confirm(`Cancel Concert Pass #${bookingId}?`)) return;
+    if (!window.confirm('Are you sure you want to cancel this concert pass?')) return;
     try {
-      await api.delete(`/parties/bookings/${bookingId}`);
-      setActionMessage(`Concert Pass #${bookingId} successfully cancelled.`);
-      fetchPasses();
+      let res;
+      try {
+        res = await api.post(`/passes/parties/${bookingId}/cancel`);
+      } catch {
+        res = await api.post(`/parties/cancel/${bookingId}`);
+      }
+      if (res.data?.success) {
+        toast.success('Concert Pass Cancelled', 'Pass released back to available slots.');
+        fetchPasses();
+      } else {
+        toast.error('Cancellation Failed', res.data?.message || 'Unable to cancel pass.');
+      }
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to cancel concert booking.');
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Failed to cancel concert pass.';
+      toast.error('Error', msg);
     }
   };
 
   const handleCancelEvent = async (regId: number) => {
-    if (!window.confirm(`Cancel Workshop Registration #${regId}?`)) return;
+    if (!window.confirm('Are you sure you want to cancel this workshop RSVP?')) return;
     try {
-      await api.delete(`/events/registrations/${regId}`);
-      setActionMessage(`Workshop Registration #${regId} cancelled.`);
-      fetchPasses();
+      let res;
+      try {
+        res = await api.post(`/passes/events/${regId}/cancel`);
+      } catch {
+        res = await api.post(`/events/cancel/${regId}`);
+      }
+      if (res.data?.success) {
+        toast.success('Workshop Cancelled', 'Your RSVP has been removed.');
+        fetchPasses();
+      } else {
+        toast.error('Cancellation Failed', res.data?.message || 'Unable to cancel RSVP.');
+      }
     } catch (err: any) {
-      alert(err.response?.data?.error || 'Failed to cancel workshop registration.');
+      const msg = err.response?.data?.message || err.response?.data?.error || 'Failed to cancel registration.';
+      toast.error('Error', msg);
     }
   };
 
-  // If user is not authenticated/registered, display strict prompt and 0 passes
   if (!isAuthenticated || !user) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-20 text-center space-y-6">
-        <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-3xl flex items-center justify-center mx-auto border border-amber-100">
+      <div className="max-w-xl mx-auto px-4 py-20 text-center space-y-6">
+        <div className="w-16 h-16 bg-brand-500/10 text-brand-600 rounded-3xl flex items-center justify-center mx-auto">
           <Ticket className="w-8 h-8" />
         </div>
-        <div className="space-y-2">
-          <h1 className="text-2xl font-extrabold text-slate-900">Member Sign In Required</h1>
-          <p className="text-sm text-slate-500 max-w-md mx-auto">
-            You must be signed in to view your booked passes. If you do not have an account, please create one or sign in.
+        <div>
+          <h1 className="text-2xl font-extrabold text-slate-900 dark:text-white">Sign In to View Passes</h1>
+          <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-1">
+            Access all your movie cinema tickets, concert VIP passes, and workshop RSVPs in one liquid wallet.
           </p>
         </div>
-        <div className="flex justify-center gap-3">
-          <button
-            onClick={() => navigate('/login')}
-            className="px-6 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-xs shadow-md transition-all flex items-center space-x-2"
-          >
-            <LogIn className="w-4 h-4" />
-            <span>Sign In to View Passes</span>
-          </button>
-          <button
-            onClick={() => navigate('/register')}
-            className="px-6 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-semibold text-xs hover:bg-slate-50 transition-all"
-          >
-            Create Account
-          </button>
-        </div>
+        <button
+          onClick={() => navigate('/auth')}
+          className="inline-flex items-center space-x-2 px-6 py-3 rounded-2xl bg-brand-600 hover:bg-brand-500 text-white font-bold text-sm shadow-lg transition-all"
+        >
+          <LogIn className="w-4 h-4" />
+          <span>Sign In to TownTrek</span>
+        </button>
       </div>
     );
   }
 
-  const totalPassCount = movieBookings.length + partyBookings.length + eventRegistrations.length;
+  const parseSafeDate = (dateStr?: string) => {
+    if (!dateStr) return new Date();
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? new Date() : d;
+  };
+
+  const allUnifiedPasses = useMemo(() => {
+    const list: Array<{
+      id: string;
+      type: 'MOVIE' | 'PARTY' | 'EVENT';
+      typeLabel: string;
+      ticketId: string;
+      amount: number;
+      date: Date;
+      cardHolder: string;
+      last4Digits: string;
+      barcodeValue: string;
+      eventTitle: string;
+      venue: string;
+      seatCodes: string;
+      status: string;
+      onCancel: () => void;
+      timestamp: number;
+    }> = [];
+
+    movieBookings.forEach((b) => {
+      const d = parseSafeDate(b.showDate);
+      list.push({
+        id: `movie-${b.bookingId}`,
+        type: 'MOVIE',
+        typeLabel: 'Cinema Ticket',
+        ticketId: `CINE-${b.bookingId}`,
+        amount: b.totalAmount,
+        date: d,
+        cardHolder: b.customerName || user?.fullName || 'TownTrek Guest',
+        last4Digits: '8237',
+        barcodeValue: `28937${b.bookingId}7365`,
+        eventTitle: b.movieName,
+        venue: `${b.theatreName} (${b.showTime})`,
+        seatCodes: b.seats || b.seatCodes,
+        status: b.bookingStatus,
+        onCancel: () => handleCancelMovie(b.bookingId),
+        timestamp: b.bookingDate ? new Date(b.bookingDate).getTime() : d.getTime(),
+      });
+    });
+
+    partyBookings.forEach((p) => {
+      const d = parseSafeDate(p.eventDate);
+      list.push({
+        id: `party-${p.bookingId}`,
+        type: 'PARTY',
+        typeLabel: 'Concert & Gig Pass',
+        ticketId: `GIG-${p.bookingId}`,
+        amount: p.totalAmount || p.totalPrice || 0,
+        date: d,
+        cardHolder: p.customerName || user?.fullName || 'TownTrek Guest',
+        last4Digits: '4190',
+        barcodeValue: `84931${p.bookingId}9201`,
+        eventTitle: p.eventTitle,
+        venue: `${p.venue} (${p.eventTime})`,
+        seatCodes: `${p.ticketsCount || p.ticketCount || 1} Pass(es)`,
+        status: p.status || p.bookingStatus || 'CONFIRMED',
+        onCancel: () => handleCancelParty(p.bookingId),
+        timestamp: p.bookingDate ? new Date(p.bookingDate).getTime() : d.getTime(),
+      });
+    });
+
+    eventRegistrations.forEach((e) => {
+      const d = parseSafeDate(e.eventDate);
+      list.push({
+        id: `event-${e.regId}`,
+        type: 'EVENT',
+        typeLabel: 'Workshop & Masterclass',
+        ticketId: `WKSP-${e.regId}`,
+        amount: e.totalAmount || e.totalFee || 0,
+        date: d,
+        cardHolder: e.customerName || user?.fullName || 'TownTrek Guest',
+        last4Digits: '6124',
+        barcodeValue: `55092${e.regId}1198`,
+        eventTitle: e.eventTitle,
+        venue: e.venue || 'Metropolitan Workshop Arena',
+        seatCodes: `${e.ticketsCount || e.attendeeCount || 1} Attendee(s)`,
+        status: e.status || 'CONFIRMED',
+        onCancel: () => handleCancelEvent(e.regId),
+        timestamp: e.regDate ? new Date(e.regDate).getTime() : d.getTime(),
+      });
+    });
+
+    return list.sort((a, b) => b.timestamp - a.timestamp);
+  }, [movieBookings, partyBookings, eventRegistrations, user]);
+
+  const totalPasses = movieBookings.length + partyBookings.length + eventRegistrations.length;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
-      {/* Header displaying User Profile Details */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-        <div className="space-y-1">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-2xl bg-brand-50 text-brand-600 flex items-center justify-center font-bold text-lg border border-brand-100">
-              {user.fullName.charAt(0)}
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">{user.fullName}</h1>
-              <p className="text-xs text-slate-500">{user.email}</p>
-            </div>
-          </div>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8 font-['Be_Vietnam_Pro',sans-serif]">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 dark:border-slate-800 pb-6">
+        <div>
+          <h1 className="text-[24px] font-bold text-slate-900 dark:text-white tracking-tight flex items-center space-x-3 font-['Be_Vietnam_Pro',sans-serif]">
+            <Ticket className="w-7 h-7 text-brand-600 dark:text-sky-400" />
+            <span>My Liquid District Passes</span>
+          </h1>
+          <p className="text-slate-500 dark:text-slate-400 text-xs sm:text-sm mt-1 font-light desc-lighter">
+            Personal ticketing wallet for {user.fullName} ({user.email}) • {totalPasses} Active Pass(es)
+          </p>
         </div>
 
-        <div className="flex items-center space-x-4 bg-slate-50 px-5 py-3 rounded-2xl border border-slate-100">
-          <div>
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Active Passes</span>
-            <span className="text-lg font-extrabold text-brand-600">{totalPassCount} Pass{totalPassCount !== 1 ? 'es' : ''}</span>
-          </div>
+        {/* Action Controls: Refresh & Filter Toggle */}
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
           <button
-            onClick={fetchPasses}
-            title="Refresh Passes"
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
+            type="button"
+            onClick={() => setShowAllDistrictPasses((prev) => !prev)}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all border ${
+              showAllDistrictPasses
+                ? 'bg-brand-600 text-white border-brand-600 shadow-md'
+                : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-800 hover:border-brand-500'
+            }`}
+            title="Toggle between my personalized passes and all passes issued on this device"
           >
-            <RotateCcw className="w-4 h-4" />
+            <Eye className="w-3.5 h-3.5" />
+            <span>{showAllDistrictPasses ? 'Showing All Device Passes' : 'My Passes Only'}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={fetchPasses}
+            disabled={loading}
+            className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:text-brand-600 dark:hover:text-sky-400 transition-colors shadow-sm"
+            title="Refresh passes from database"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
         </div>
       </div>
 
-      {actionMessage && (
-        <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center space-x-2">
-          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
-          <span>{actionMessage}</span>
-        </div>
-      )}
-
-      {/* Tabs */}
-      <div className="flex space-x-2 border-b border-slate-200 pb-2">
+      {/* Tab Switcher - All Unified Passes Filter Included */}
+      <div className="inline-flex flex-wrap gap-1.5 p-1.5 rounded-2xl bg-slate-100/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200/80 dark:border-white/10 shadow-sm">
+        <button
+          onClick={() => setActiveTab('ALL')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all ${
+            activeTab === 'ALL'
+              ? 'bg-brand-600 text-white shadow-md'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/5'
+          }`}
+        >
+          <Layers className="w-3.5 h-3.5" />
+          <span>All Passes ({allUnifiedPasses.length})</span>
+        </button>
         <button
           onClick={() => setActiveTab('MOVIES')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all ${
             activeTab === 'MOVIES'
-              ? 'bg-brand-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100'
+              ? 'bg-sky-600 text-white shadow-md'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/5'
           }`}
         >
-          <Film className="w-4 h-4" />
-          <span>Movie Passes ({movieBookings.length})</span>
+          <Film className="w-3.5 h-3.5" />
+          <span>Movies ({movieBookings.length})</span>
         </button>
-
         <button
           onClick={() => setActiveTab('PARTIES')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all ${
             activeTab === 'PARTIES'
-              ? 'bg-purple-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100'
+              ? 'bg-purple-600 text-white shadow-md'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/5'
           }`}
         >
-          <Music className="w-4 h-4" />
-          <span>Concert Passes ({partyBookings.length})</span>
+          <Music className="w-3.5 h-3.5" />
+          <span>Concerts ({partyBookings.length})</span>
         </button>
-
         <button
           onClick={() => setActiveTab('EVENTS')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 ${
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 transition-all ${
             activeTab === 'EVENTS'
-              ? 'bg-amber-600 text-white shadow-sm'
-              : 'text-slate-600 hover:bg-slate-100'
+              ? 'bg-amber-600 text-white shadow-md'
+              : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-white/50 dark:hover:bg-white/5'
           }`}
         >
-          <Calendar className="w-4 h-4" />
+          <Calendar className="w-3.5 h-3.5" />
           <span>Workshops ({eventRegistrations.length})</span>
         </button>
       </div>
 
+      {/* Main Content Area with AnimatedTicket confirmation cards */}
       {loading ? (
-        <div className="text-center py-20 text-slate-400">Loading your passes from MySQL database...</div>
+        <div className="text-center py-20 text-slate-400 dark:text-slate-500">
+          Loading your verified passes...
+        </div>
       ) : (
         <div>
+          {/* ALL PASSES (UNIFIED VIEW) TAB */}
+          {activeTab === 'ALL' && (
+            <div>
+              {allUnifiedPasses.length === 0 ? (
+                <div className="rounded-3xl p-12 text-center border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4">
+                  <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
+                    You have not booked any district passes yet.
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowAllDistrictPasses(true)}
+                      className="px-4 py-2 rounded-xl bg-brand-50 dark:bg-brand-950/40 border border-brand-200 dark:border-brand-800 text-brand-700 dark:text-brand-300 text-xs font-bold hover:bg-brand-100 transition-colors flex items-center space-x-1.5"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Show All Passes Issued On Device</span>
+                    </button>
+                    <Link to="/movies" className="inline-block text-xs font-bold text-brand-600 dark:text-sky-400 hover:underline">
+                      Browse Movies &rarr;
+                    </Link>
+                    <Link to="/entertainment" className="inline-block text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline">
+                      Browse Concerts &rarr;
+                    </Link>
+                    <Link to="/events" className="inline-block text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline">
+                      Browse Workshops &rarr;
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center">
+                  {allUnifiedPasses.map((pass) => (
+                    <div key={pass.id} className="w-full flex flex-col items-center space-y-2.5">
+                      <div className="self-center">
+                        <span className={`inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-[11px] font-bold backdrop-blur-md border ${
+                          pass.type === 'MOVIE'
+                            ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20'
+                            : pass.type === 'PARTY'
+                            ? 'bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20'
+                            : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                        }`}>
+                          {pass.type === 'MOVIE' && <Film className="w-3 h-3" />}
+                          {pass.type === 'PARTY' && <Music className="w-3 h-3" />}
+                          {pass.type === 'EVENT' && <Calendar className="w-3 h-3" />}
+                          <span>{pass.typeLabel}</span>
+                        </span>
+                      </div>
+                      <AnimatedTicket
+                        ticketId={pass.ticketId}
+                        amount={pass.amount}
+                        date={pass.date}
+                        cardHolder={pass.cardHolder}
+                        last4Digits={pass.last4Digits}
+                        barcodeValue={pass.barcodeValue}
+                        eventTitle={pass.eventTitle}
+                        venue={pass.venue}
+                        seatCodes={pass.seatCodes}
+                        status={pass.status}
+                        onCancel={pass.onCancel}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
           {/* MOVIES TAB */}
           {activeTab === 'MOVIES' && (
             <div>
               {movieBookings.length === 0 ? (
-                <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 space-y-3">
-                  <p className="text-slate-500 text-sm font-medium">You have not booked any movie passes yet.</p>
-                  <Link to="/movies" className="inline-block text-xs font-bold text-brand-600 hover:underline">
-                    Browse Movies &amp; Choose Seats &rarr;
-                  </Link>
+                <div className="rounded-3xl p-12 text-center border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4">
+                  <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
+                    You have not booked any cinema passes matching &quot;{user.fullName}&quot; yet.
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowAllDistrictPasses(true)}
+                      className="px-4 py-2 rounded-xl bg-brand-50 dark:bg-brand-950/40 border border-brand-200 dark:border-brand-800 text-brand-700 dark:text-brand-300 text-xs font-bold hover:bg-brand-100 transition-colors flex items-center space-x-1.5"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Show All Cinema Bookings Issued</span>
+                    </button>
+                    <Link to="/movies" className="inline-block text-xs font-bold text-brand-600 dark:text-sky-400 hover:underline">
+                      Browse Movies &amp; Cinemas &rarr;
+                    </Link>
+                  </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center">
                   {movieBookings.map((b) => (
-                    <div
+                    <AnimatedTicket
                       key={b.bookingId}
-                      className="bg-white rounded-3xl border border-slate-200 p-6 space-y-4 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between"
-                    >
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-brand-600 bg-brand-50 px-2.5 py-1 rounded-full border border-brand-100">
-                            Pass #{b.bookingId}
-                          </span>
-                          <span className="font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
-                            {b.bookingStatus}
-                          </span>
-                        </div>
-
-                        <h3 className="text-lg font-bold text-slate-900">{b.movieName}</h3>
-
-                        <div className="space-y-1 text-xs text-slate-500 pt-2 border-t border-slate-100">
-                          <p><strong className="text-slate-700">Cinema:</strong> {b.theatreName}</p>
-                          <p><strong className="text-slate-700">Schedule:</strong> {b.showDate} at {b.showTime}</p>
-                          <p><strong className="text-slate-700">Seats:</strong> <span className="font-bold text-brand-600">{b.seats}</span></p>
-                          <p><strong className="text-slate-700">Total Paid:</strong> ₹ {b.totalAmount}</p>
-                        </div>
-                      </div>
-
-                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                        <span className="text-[11px] text-slate-400">{b.bookingDate}</span>
-                        {b.bookingStatus === 'CONFIRMED' && (
-                          <button
-                            onClick={() => handleCancelMovie(b.bookingId)}
-                            className="text-xs text-rose-600 hover:text-rose-800 font-semibold"
-                          >
-                            Cancel Pass
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                      ticketId={`CINE-${b.bookingId}`}
+                      amount={b.totalAmount}
+                      date={parseSafeDate(b.showDate)}
+                      cardHolder={b.customerName || user.fullName}
+                      last4Digits="8237"
+                      barcodeValue={`28937${b.bookingId}7365`}
+                      eventTitle={b.movieName}
+                      venue={`${b.theatreName} (${b.showTime})`}
+                      seatCodes={b.seats || b.seatCodes}
+                      status={b.bookingStatus}
+                      onCancel={() => handleCancelMovie(b.bookingId)}
+                    />
                   ))}
                 </div>
               )}
@@ -255,51 +458,41 @@ export const MyPassesPage: React.FC = () => {
           {activeTab === 'PARTIES' && (
             <div>
               {partyBookings.length === 0 ? (
-                <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 space-y-3">
-                  <p className="text-slate-500 text-sm font-medium">You have not booked any concert passes yet.</p>
-                  <Link to="/entertainment" className="inline-block text-xs font-bold text-purple-600 hover:underline">
-                    Browse Concerts &amp; Gigs &rarr;
-                  </Link>
+                <div className="rounded-3xl p-12 text-center border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4">
+                  <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
+                    You have not booked any concert passes matching &quot;{user.fullName}&quot; yet.
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowAllDistrictPasses(true)}
+                      className="px-4 py-2 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300 text-xs font-bold hover:bg-purple-100 transition-colors flex items-center space-x-1.5"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Show All Concert Passes Issued</span>
+                    </button>
+                    <Link to="/entertainment" className="inline-block text-xs font-bold text-purple-600 dark:text-purple-400 hover:underline">
+                      Browse Concerts &amp; Gigs &rarr;
+                    </Link>
+                  </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center">
                   {partyBookings.map((p) => (
-                    <div
+                    <AnimatedTicket
                       key={p.bookingId}
-                      className="bg-white rounded-3xl border border-slate-200 p-6 space-y-4 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between"
-                    >
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-purple-600 bg-purple-50 px-2.5 py-1 rounded-full border border-purple-100">
-                            Pass #{p.bookingId}
-                          </span>
-                          <span className="font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
-                            {p.status}
-                          </span>
-                        </div>
-
-                        <h3 className="text-lg font-bold text-slate-900">{p.eventTitle}</h3>
-
-                        <div className="space-y-1 text-xs text-slate-500 pt-2 border-t border-slate-100">
-                          <p><strong className="text-slate-700">Venue:</strong> {p.venue}</p>
-                          <p><strong className="text-slate-700">Schedule:</strong> {p.eventDate} at {p.eventTime}</p>
-                          <p><strong className="text-slate-700">Tickets:</strong> {p.ticketCount} Attendee(s)</p>
-                          <p><strong className="text-slate-700">Total Amount:</strong> ₹ {p.totalPrice}</p>
-                        </div>
-                      </div>
-
-                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                        <span className="text-[11px] text-slate-400">{p.bookingDate}</span>
-                        {p.status === 'CONFIRMED' && (
-                          <button
-                            onClick={() => handleCancelParty(p.bookingId)}
-                            className="text-xs text-rose-600 hover:text-rose-800 font-semibold"
-                          >
-                            Cancel Pass
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                      ticketId={`GIG-${p.bookingId}`}
+                      amount={p.totalAmount || p.totalPrice || 0}
+                      date={parseSafeDate(p.eventDate)}
+                      cardHolder={p.customerName || user.fullName}
+                      last4Digits="4190"
+                      barcodeValue={`84931${p.bookingId}9201`}
+                      eventTitle={p.eventTitle}
+                      venue={`${p.venue} (${p.eventTime})`}
+                      seatCodes={`${p.ticketsCount || p.ticketCount || 1} Pass(es)`}
+                      status={p.status || p.bookingStatus || 'CONFIRMED'}
+                      onCancel={() => handleCancelParty(p.bookingId)}
+                    />
                   ))}
                 </div>
               )}
@@ -310,51 +503,41 @@ export const MyPassesPage: React.FC = () => {
           {activeTab === 'EVENTS' && (
             <div>
               {eventRegistrations.length === 0 ? (
-                <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 space-y-3">
-                  <p className="text-slate-500 text-sm font-medium">You have not registered for any workshops yet.</p>
-                  <Link to="/events" className="inline-block text-xs font-bold text-amber-600 hover:underline">
-                    Browse Workshops &amp; Carnivals &rarr;
-                  </Link>
+                <div className="rounded-3xl p-12 text-center border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 space-y-4">
+                  <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">
+                    You have not registered for any workshops matching &quot;{user.fullName}&quot; yet.
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowAllDistrictPasses(true)}
+                      className="px-4 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-xs font-bold hover:bg-amber-100 transition-colors flex items-center space-x-1.5"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Show All Workshop RSVPs Issued</span>
+                    </button>
+                    <Link to="/events" className="inline-block text-xs font-bold text-amber-600 dark:text-amber-400 hover:underline">
+                      Browse Workshops &amp; Carnivals &rarr;
+                    </Link>
+                  </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 justify-items-center">
                   {eventRegistrations.map((e) => (
-                    <div
+                    <AnimatedTicket
                       key={e.regId}
-                      className="bg-white rounded-3xl border border-slate-200 p-6 space-y-4 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between"
-                    >
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-100">
-                            Reg #{e.regId}
-                          </span>
-                          <span className="font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
-                            {e.status}
-                          </span>
-                        </div>
-
-                        <h3 className="text-lg font-bold text-slate-900">{e.eventTitle}</h3>
-
-                        <div className="space-y-1 text-xs text-slate-500 pt-2 border-t border-slate-100">
-                          <p><strong className="text-slate-700">Venue:</strong> {e.venue}</p>
-                          <p><strong className="text-slate-700">Schedule:</strong> {e.eventDate} at {e.eventTime}</p>
-                          <p><strong className="text-slate-700">Attendees:</strong> {e.attendeeCount}</p>
-                          <p><strong className="text-slate-700">Total Fee:</strong> {Number(e.totalFee) === 0 ? 'FREE' : `₹ ${e.totalFee}`}</p>
-                        </div>
-                      </div>
-
-                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                        <span className="text-[11px] text-slate-400">{e.regDate}</span>
-                        {e.status === 'CONFIRMED' && (
-                          <button
-                            onClick={() => handleCancelEvent(e.regId)}
-                            className="text-xs text-rose-600 hover:text-rose-800 font-semibold"
-                          >
-                            Cancel Registration
-                          </button>
-                        )}
-                      </div>
-                    </div>
+                      ticketId={`WKSP-${e.regId}`}
+                      amount={e.totalAmount || e.totalFee || 0}
+                      date={parseSafeDate(e.eventDate)}
+                      cardHolder={e.customerName || user.fullName}
+                      last4Digits="6124"
+                      barcodeValue={`55092${e.regId}1198`}
+                      eventTitle={e.eventTitle}
+                      venue={e.venue || 'Metropolitan Workshop Arena'}
+                      seatCodes={`${e.ticketsCount || e.attendeeCount || 1} Attendee(s)`}
+                      status={e.status || 'CONFIRMED'}
+                      onCancel={() => handleCancelEvent(e.regId)}
+                    />
                   ))}
                 </div>
               )}
@@ -365,3 +548,5 @@ export const MyPassesPage: React.FC = () => {
     </div>
   );
 };
+
+export default MyPassesPage;

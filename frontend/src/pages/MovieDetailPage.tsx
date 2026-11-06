@@ -1,17 +1,24 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Film, MapPin, Calendar, Clock, Tag, CheckCircle2, AlertCircle, Utensils, Plus, Minus, Popcorn } from 'lucide-react';
+import { Film, MapPin, Calendar, Clock, Tag, AlertCircle, Utensils, Plus, Minus, Popcorn, Sparkles } from 'lucide-react';
 import api from '../services/api';
 import { Movie, Show, Seat, MovieBookingDetail } from '../types';
 import { SeatMap } from '../components/SeatMap';
 import { useAuth } from '../context/AuthContext';
-import { getMovieImage } from '../utils/locationImages';
+import { useToast } from '../context/ToastContext';
+import { useCity } from '../context/CityContext';
+import { AnimatedTicket } from '../components/ui/ticket-confirmation-card';
+import { SlideActionButton } from '../components/ui/slide-action-button';
+import { getMovieImage, FALLBACK_IMAGE } from '../utils/locationImages';
 import { CINEMA_SNACKS, SnackAddon } from '../utils/cinemaSnacks';
 
 export const MovieDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { toast } = useToast();
+  const { selectedCity, matchesCity, isCityMatchingActive } = useCity();
+  const [showAllDistricts, setShowAllDistricts] = useState(false);
 
   const [movie, setMovie] = useState<Movie | null>(null);
   const [shows, setShows] = useState<Show[]>([]);
@@ -26,10 +33,34 @@ export const MovieDetailPage: React.FC = () => {
   const [customerName, setCustomerName] = useState(user?.fullName || '');
   const [customerEmail, setCustomerEmail] = useState(user?.email || '');
 
+  useEffect(() => {
+    if (user) {
+      if (!customerName) setCustomerName(user.fullName || '');
+      if (!customerEmail) setCustomerEmail(user.email || '');
+    }
+  }, [user]);
+
   const [loading, setLoading] = useState(true);
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [confirmedBooking, setConfirmedBooking] = useState<MovieBookingDetail | null>(null);
+
+  // Filter shows strictly by active user district
+  const filteredShows = useMemo(() => {
+    if (showAllDistricts || !isCityMatchingActive) return shows;
+    return shows.filter(s => matchesCity(`${s.city || ''} ${s.theatreName} ${s.theatreLocation}`));
+  }, [shows, isCityMatchingActive, showAllDistricts, matchesCity]);
+
+  // Keep selectedShow in sync with district filtered shows
+  useEffect(() => {
+    if (filteredShows.length > 0) {
+      if (!selectedShow || !filteredShows.some(s => s.showId === selectedShow.showId)) {
+        setSelectedShow(filteredShows[0]);
+      }
+    } else {
+      setSelectedShow(null);
+    }
+  }, [filteredShows, selectedShow]);
 
   useEffect(() => {
     if (!id) return;
@@ -37,9 +68,6 @@ export const MovieDetailPage: React.FC = () => {
       api.get(`/movies/${id}`).then((res) => setMovie(res.data)),
       api.get(`/movies/${id}/shows`).then((res) => {
         setShows(res.data);
-        if (res.data.length > 0) {
-          setSelectedShow(res.data[0]);
-        }
       }),
     ]).finally(() => setLoading(false));
   }, [id]);
@@ -119,9 +147,19 @@ export const MovieDetailPage: React.FC = () => {
 
       const res = await api.post('/movies/book', payload);
       setConfirmedBooking(res.data);
+      toast.success('Cinema Reservation Confirmed!', `Seats: ${selectedSeats.join(', ')}`);
       localStorage.setItem('towntrek_last_booking_name', customerName.trim());
       if (customerEmail.trim()) {
         localStorage.setItem('towntrek_last_booking_email', customerEmail.trim());
+      }
+      if (res.data?.bookingId) {
+        try {
+          const stored = JSON.parse(localStorage.getItem('towntrek_booked_movie_ids') || '[]');
+          if (!stored.includes(res.data.bookingId)) {
+            stored.push(res.data.bookingId);
+            localStorage.setItem('towntrek_booked_movie_ids', JSON.stringify(stored));
+          }
+        } catch (_) {}
       }
     } catch (err: any) {
       setBookingError(err.response?.data?.error || 'Failed to complete reservation. Some seats may have been booked.');
@@ -149,81 +187,42 @@ export const MovieDetailPage: React.FC = () => {
   const posterImage = movie.posterUrl || getMovieImage(movie.movieId);
 
   if (confirmedBooking) {
+    const parsedDate = new Date(`${confirmedBooking.showDate}T${confirmedBooking.showTime}`);
+    const validDate = isNaN(parsedDate.getTime()) ? new Date() : parsedDate;
+
     return (
-      <div className="max-w-2xl mx-auto px-4 py-16">
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-xl p-8 space-y-6 text-center">
-          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-            <CheckCircle2 className="w-8 h-8" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-extrabold text-slate-900">Movie Reservation Confirmed!</h1>
-            <p className="text-xs text-slate-500 mt-1">
-              Booking ID: #{confirmedBooking.bookingId} &bull; Stored securely in MySQL
-            </p>
-          </div>
+      <div className="max-w-2xl mx-auto px-4 py-12 flex flex-col items-center space-y-6">
+        <AnimatedTicket
+          ticketId={`CINE-${confirmedBooking.bookingId}`}
+          amount={grandTotal}
+          date={validDate}
+          cardHolder={confirmedBooking.customerName}
+          last4Digits="8237"
+          barcodeValue={`28937${confirmedBooking.bookingId}73650`}
+          eventTitle={confirmedBooking.movieName}
+          venue={`${confirmedBooking.theatreName} (${confirmedBooking.showTime})`}
+          seatCodes={confirmedBooking.seats}
+          status="CONFIRMED"
+          triggerConfetti={true}
+        />
 
-          <div className="bg-slate-50 rounded-2xl p-6 text-left space-y-3 text-xs border border-slate-100">
-            <div className="flex justify-between">
-              <span className="text-slate-500">Film Title:</span>
-              <span className="font-bold text-slate-900">{confirmedBooking.movieName}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Cinema &amp; Screen:</span>
-              <span className="font-bold text-slate-900">{confirmedBooking.theatreName}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Schedule:</span>
-              <span className="font-bold text-slate-900">{confirmedBooking.showDate} at {confirmedBooking.showTime}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Allocated Seats:</span>
-              <span className="font-bold text-brand-600">{confirmedBooking.seats}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Ticket Holder:</span>
-              <span className="font-bold text-slate-900">{confirmedBooking.customerName}</span>
-            </div>
-
-            {snackTotal > 0 && (
-              <div className="pt-2 border-t border-slate-200 space-y-1">
-                <span className="font-bold text-slate-700 block">Snack &amp; Beverage Addons:</span>
-                {Object.entries(selectedSnacks).map(([snackId, qty]) => {
-                  const s = CINEMA_SNACKS.find((item) => item.id === snackId);
-                  if (!s) return null;
-                  return (
-                    <div key={snackId} className="flex justify-between text-slate-600">
-                      <span>{s.name} &times; {qty}</span>
-                      <span>Rs. {s.price * qty}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            <div className="pt-2 border-t border-slate-200 flex justify-between text-base">
-              <span className="font-bold text-slate-700">Total Payable:</span>
-              <span className="font-extrabold text-slate-900">Rs. {grandTotal}</span>
-            </div>
-          </div>
-
-          <div className="flex justify-center space-x-4">
-            <button
-              onClick={() => navigate('/passes')}
-              className="px-6 py-2.5 rounded-xl bg-slate-900 text-white font-semibold text-sm hover:bg-slate-800 transition-colors shadow-sm"
-            >
-              View My Passes
-            </button>
-            <button
-              onClick={() => {
-                setConfirmedBooking(null);
-                setSelectedSeats([]);
-                setSelectedSnacks({});
-              }}
-              className="px-6 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-semibold text-sm hover:bg-slate-50 transition-colors"
-            >
-              Book Another Show
-            </button>
-          </div>
+        <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+          <button
+            onClick={() => navigate('/passes')}
+            className="px-6 py-2.5 rounded-2xl bg-brand-600 text-white font-bold text-xs shadow-lg hover:bg-brand-500 transition-all"
+          >
+            View in Passes Wallet
+          </button>
+          <button
+            onClick={() => {
+              setConfirmedBooking(null);
+              setSelectedSeats([]);
+              setSelectedSnacks({});
+            }}
+            className="px-6 py-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold text-xs hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+          >
+            Book Another Show
+          </button>
         </div>
       </div>
     );
@@ -238,6 +237,9 @@ export const MovieDetailPage: React.FC = () => {
             src={posterImage}
             alt={movie.movieName}
             className="w-full h-full object-cover opacity-25 filter blur-sm scale-105"
+            onError={(e) => {
+              (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
+            }}
           />
           <div className="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/90 to-transparent" />
         </div>
@@ -250,6 +252,9 @@ export const MovieDetailPage: React.FC = () => {
                 src={posterImage}
                 alt={movie.movieName}
                 className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
+                }}
               />
             </div>
 
@@ -298,17 +303,42 @@ export const MovieDetailPage: React.FC = () => {
 
       {/* Step 1: Available Showtimes & Venues */}
       <div className="space-y-3">
-        <h2 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
-          <span className="w-6 h-6 rounded-full bg-slate-900 text-white text-xs flex items-center justify-center font-bold">1</span>
-          <span>Select Showtime &amp; Cinema</span>
-        </h2>
-        {shows.length === 0 ? (
-          <div className="p-6 rounded-2xl bg-slate-100 text-slate-500 text-sm">
-            No active shows are currently scheduled for this movie.
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <h2 className="text-lg font-bold text-slate-900 flex items-center space-x-2">
+            <span className="w-6 h-6 rounded-full bg-slate-900 text-white text-xs flex items-center justify-center font-bold">1</span>
+            <span>Select Showtime &amp; Cinema</span>
+          </h2>
+
+          {selectedCity && (
+            <div className="flex items-center space-x-2 text-xs">
+              <span className="bg-brand-50 text-brand-700 dark:bg-brand-950/60 dark:text-brand-300 px-3 py-1 rounded-full font-semibold border border-brand-200 dark:border-brand-800 flex items-center space-x-1 shadow-sm">
+                <MapPin className="w-3.5 h-3.5 text-brand-500" />
+                <span>Showing {selectedCity} Theatres</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowAllDistricts(prev => !prev)}
+                className="text-xs text-slate-500 hover:text-brand-600 underline font-medium cursor-pointer"
+              >
+                {showAllDistricts ? 'Filter by My District' : 'Show All Cities'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {filteredShows.length === 0 ? (
+          <div className="p-6 rounded-2xl bg-slate-100 text-slate-500 text-sm flex items-center justify-between">
+            <span>No active shows found for your selected district ({selectedCity}).</span>
+            <button
+              onClick={() => setShowAllDistricts(true)}
+              className="text-xs font-semibold text-brand-600 underline"
+            >
+              View Shows in Other Cities
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {shows.map((show) => {
+            {filteredShows.map((show) => {
               const isSelected = selectedShow?.showId === show.showId;
               return (
                 <button
@@ -540,13 +570,21 @@ export const MovieDetailPage: React.FC = () => {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={bookingLoading || selectedSeats.length === 0}
-                className="w-full py-3.5 rounded-2xl bg-brand-600 hover:bg-brand-500 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold text-sm shadow-lg transition-all"
-              >
-                {bookingLoading ? 'Reserving Seats...' : `Confirm Reservation & Pass (Rs. ${grandTotal})`}
-              </button>
+              <div className="pt-2 flex justify-center">
+                <SlideActionButton
+                  onComplete={() => {
+                    const fakeEvent = { preventDefault: () => {} } as React.FormEvent;
+                    handleBooking(fakeEvent);
+                  }}
+                  disabled={selectedSeats.length === 0 || bookingLoading}
+                  completeLabel="Booking Confirmed!"
+                  className="w-full"
+                >
+                  {selectedSeats.length === 0
+                    ? "Select seats to book"
+                    : `Slide to book (${selectedSeats.length} seats • Rs. ${grandTotal})`}
+                </SlideActionButton>
+              </div>
             </form>
           </div>
         </div>

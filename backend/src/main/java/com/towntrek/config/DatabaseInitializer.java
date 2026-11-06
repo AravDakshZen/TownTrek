@@ -29,10 +29,15 @@ public class DatabaseInitializer implements CommandLineRunner {
         log.info("====================================================================");
 
         try {
+            // 1. Ensure `city` column exists on all location-dependent tables immediately
+            ensureColumnsExist();
+
+            // 2. Execute schema.sql if exists
             ClassPathResource resource = new ClassPathResource("schema.sql");
             if (resource.exists()) {
                 String fullSql;
-                try (BufferedReader reader = new BufferedReader(new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8))) {
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(resource.getInputStream(), StandardCharsets.UTF_8))) {
                     fullSql = reader.lines().collect(Collectors.joining("\n"));
                 }
 
@@ -41,7 +46,6 @@ public class DatabaseInitializer implements CommandLineRunner {
                 int executed = 0;
                 for (String rawStmt : statements) {
                     String stmt = rawStmt.trim();
-                    // Skip comments and empty statements
                     if (stmt.isEmpty() || stmt.startsWith("--") || stmt.startsWith("/*")) {
                         continue;
                     }
@@ -49,8 +53,8 @@ public class DatabaseInitializer implements CommandLineRunner {
                         jdbcTemplate.execute(stmt);
                         executed++;
                     } catch (Exception ex) {
-                        // Ignore non-fatal statement warnings like table already exists
-                        log.debug("Notice on statement: {}", ex.getMessage());
+                        log.debug("Notice on statement [{}]: {}", stmt.substring(0, Math.min(50, stmt.length())),
+                                ex.getMessage());
                     }
                 }
                 log.info("Executed {} SQL initialization statements successfully.", executed);
@@ -79,17 +83,71 @@ public class DatabaseInitializer implements CommandLineRunner {
             log.info("  ALL TOWNTREK RECORDS ARE FULLY SYNCHRONIZED IN MYSQL DATABASE!    ");
             log.info("====================================================================");
         } catch (Exception e) {
-            log.error("Database initialization check encountered an issue: {}", e.getMessage());
+            log.warn("Database initialization notice: {}", e.getMessage());
         }
     }
 
-    private int countRows(String tableName) {
+    private void ensureColumnsExist() {
+        String[] tableCreates = new String[] {
+            """
+            CREATE TABLE IF NOT EXISTS party_bookings (
+                booking_id INT AUTO_INCREMENT PRIMARY KEY,
+                customer_name VARCHAR(100) NOT NULL,
+                user_email VARCHAR(120) NOT NULL,
+                event_id INT NOT NULL,
+                tickets_count INT NOT NULL,
+                total_amount DECIMAL(10,2) NOT NULL,
+                booking_status ENUM('CONFIRMED', 'CANCELLED') DEFAULT 'CONFIRMED',
+                booking_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (event_id) REFERENCES parties_concerts(event_id) ON DELETE CASCADE
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS event_registrations (
+                reg_id INT AUTO_INCREMENT PRIMARY KEY,
+                customer_name VARCHAR(100) NOT NULL,
+                user_email VARCHAR(120) NOT NULL,
+                event_id INT NOT NULL,
+                attendee_count INT NOT NULL,
+                total_fee DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                status ENUM('CONFIRMED', 'CANCELLED') DEFAULT 'CONFIRMED',
+                reg_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (event_id) REFERENCES towntrek_events(event_id) ON DELETE CASCADE
+            )
+            """
+        };
+        for (String sql : tableCreates) {
+            try {
+                jdbcTemplate.execute(sql);
+            } catch (Exception ignored) {}
+        }
+
+        String[] alterStatements = new String[] {
+                "ALTER TABLE users ADD COLUMN city VARCHAR(100) DEFAULT 'Chennai'",
+                "ALTER TABLE theatres ADD COLUMN city VARCHAR(100) DEFAULT 'Chennai'",
+                "ALTER TABLE parties_concerts ADD COLUMN city VARCHAR(100) DEFAULT 'Chennai'",
+                "ALTER TABLE towntrek_events ADD COLUMN city VARCHAR(100) DEFAULT 'Chennai'",
+                "ALTER TABLE tourist_attractions ADD COLUMN city VARCHAR(100) DEFAULT 'Chennai'",
+                "ALTER TABLE city_spots ADD COLUMN city VARCHAR(100) DEFAULT 'Chennai'",
+                "ALTER TABLE emergency_services ADD COLUMN city VARCHAR(100) DEFAULT 'Chennai'",
+                "ALTER TABLE bookings ADD COLUMN customer_email VARCHAR(120) DEFAULT ''"
+        };
+        for (String sql : alterStatements) {
+            try {
+                jdbcTemplate.execute(sql);
+                log.info("Applied migration check: {}", sql);
+            } catch (Exception ignored) {
+                // Table doesn't exist yet or column already added
+            }
+        }
+    }
+
+    private int countRows(String table) {
         try {
-            Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + tableName, Integer.class);
+            Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + table, Integer.class);
             return count != null ? count : 0;
         } catch (Exception e) {
             return 0;
         }
     }
 }
-

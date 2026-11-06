@@ -12,7 +12,7 @@ import java.math.BigDecimal;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.sql.Timestamp;
-import java.util.List;
+import java.util.*;
 
 @Repository
 public class DistrictEventDAO {
@@ -26,7 +26,8 @@ public class DistrictEventDAO {
     public List<DistrictEvent> findAll() {
         String sql = """
             SELECT event_id, title, category, venue, location,
-                   event_date, event_time, entry_fee, max_capacity, registered_count, description
+                   event_date, event_time, entry_fee, max_capacity, registered_count, description,
+                   COALESCE(city, 'Chennai') AS city
             FROM towntrek_events
             ORDER BY event_id ASC
             """;
@@ -41,14 +42,16 @@ public class DistrictEventDAO {
                 rs.getBigDecimal("entry_fee"),
                 rs.getInt("max_capacity"),
                 rs.getInt("registered_count"),
-                rs.getString("description")
+                rs.getString("description"),
+                rs.getString("city")
         ));
     }
 
     public List<DistrictEvent> findByCategory(String category) {
         String sql = """
             SELECT event_id, title, category, venue, location,
-                   event_date, event_time, entry_fee, max_capacity, registered_count, description
+                   event_date, event_time, entry_fee, max_capacity, registered_count, description,
+                   COALESCE(city, 'Chennai') AS city
             FROM towntrek_events
             WHERE category = ?
             ORDER BY event_id ASC
@@ -64,14 +67,16 @@ public class DistrictEventDAO {
                 rs.getBigDecimal("entry_fee"),
                 rs.getInt("max_capacity"),
                 rs.getInt("registered_count"),
-                rs.getString("description")
+                rs.getString("description"),
+                rs.getString("city")
         ), category);
     }
 
     public DistrictEvent findById(int eventId) {
         String sql = """
             SELECT event_id, title, category, venue, location,
-                   event_date, event_time, entry_fee, max_capacity, registered_count, description
+                   event_date, event_time, entry_fee, max_capacity, registered_count, description,
+                   COALESCE(city, 'Chennai') AS city
             FROM towntrek_events
             WHERE event_id = ?
             """;
@@ -86,7 +91,8 @@ public class DistrictEventDAO {
                 rs.getBigDecimal("entry_fee"),
                 rs.getInt("max_capacity"),
                 rs.getInt("registered_count"),
-                rs.getString("description")
+                rs.getString("description"),
+                rs.getString("city")
         ), eventId);
         return list.isEmpty() ? null : list.get(0);
     }
@@ -138,35 +144,41 @@ public class DistrictEventDAO {
         String sql = """
             SELECT r.reg_id, r.customer_name, r.user_email, r.event_id,
                    e.title, e.venue, e.event_date, e.event_time,
-                   r.attendee_count, r.total_fee, r.status, r.reg_date
+                   r.attendee_count, r.total_fee, r.status,
+                   COALESCE(r.registration_date, CURRENT_TIMESTAMP) AS reg_date
             FROM event_registrations r
             JOIN towntrek_events e ON e.event_id = r.event_id
             ORDER BY r.reg_id DESC
             """;
-        return jdbcTemplate.query(sql, (rs, rowNum) -> {
-            Timestamp ts = rs.getTimestamp("reg_date");
-            return new EventRegistration(
-                    rs.getInt("reg_id"),
-                    rs.getString("customer_name"),
-                    rs.getString("user_email"),
-                    rs.getInt("event_id"),
-                    rs.getString("title"),
-                    rs.getString("venue"),
-                    rs.getDate("event_date").toLocalDate(),
-                    rs.getTime("event_time").toLocalTime(),
-                    rs.getInt("attendee_count"),
-                    rs.getBigDecimal("total_fee"),
-                    rs.getString("status"),
-                    ts != null ? ts.toLocalDateTime() : null
-            );
-        });
+        try {
+            return jdbcTemplate.query(sql, (rs, rowNum) -> {
+                Timestamp ts = rs.getTimestamp("reg_date");
+                return new EventRegistration(
+                        rs.getInt("reg_id"),
+                        rs.getString("customer_name"),
+                        rs.getString("user_email"),
+                        rs.getInt("event_id"),
+                        rs.getString("title"),
+                        rs.getString("venue"),
+                        rs.getDate("event_date").toLocalDate(),
+                        rs.getTime("event_time").toLocalTime(),
+                        rs.getInt("attendee_count"),
+                        rs.getBigDecimal("total_fee"),
+                        rs.getString("status"),
+                        ts != null ? ts.toLocalDateTime() : null
+                );
+            });
+        } catch (Exception ex) {
+            return Collections.emptyList();
+        }
     }
 
     public List<EventRegistration> findRegistrationsByUserOrName(String userEmail, String customerName) {
         String sql = """
             SELECT r.reg_id, r.customer_name, r.user_email, r.event_id,
                    e.title, e.venue, e.event_date, e.event_time,
-                   r.attendee_count, r.total_fee, r.status, r.reg_date
+                   r.attendee_count, r.total_fee, r.status,
+                   COALESCE(r.registration_date, CURRENT_TIMESTAMP) AS reg_date
             FROM event_registrations r
             JOIN towntrek_events e ON e.event_id = r.event_id
             WHERE LOWER(TRIM(r.user_email)) = LOWER(TRIM(?))
@@ -178,27 +190,113 @@ public class DistrictEventDAO {
         String nameQuery = customerName != null ? customerName.trim() : "";
         String wildcardName = "%" + (nameQuery.isEmpty() ? emailQuery : nameQuery) + "%";
 
-        return jdbcTemplate.query(sql, (rs, rowNum) -> {
-            Timestamp ts = rs.getTimestamp("reg_date");
-            return new EventRegistration(
-                    rs.getInt("reg_id"),
-                    rs.getString("customer_name"),
-                    rs.getString("user_email"),
-                    rs.getInt("event_id"),
-                    rs.getString("title"),
-                    rs.getString("venue"),
-                    rs.getDate("event_date").toLocalDate(),
-                    rs.getTime("event_time").toLocalTime(),
-                    rs.getInt("attendee_count"),
-                    rs.getBigDecimal("total_fee"),
-                    rs.getString("status"),
-                    ts != null ? ts.toLocalDateTime() : null
-            );
-        }, emailQuery, nameQuery, wildcardName);
+        try {
+            return jdbcTemplate.query(sql, (rs, rowNum) -> {
+                Timestamp ts = rs.getTimestamp("reg_date");
+                return new EventRegistration(
+                        rs.getInt("reg_id"),
+                        rs.getString("customer_name"),
+                        rs.getString("user_email"),
+                        rs.getInt("event_id"),
+                        rs.getString("title"),
+                        rs.getString("venue"),
+                        rs.getDate("event_date").toLocalDate(),
+                        rs.getTime("event_time").toLocalTime(),
+                        rs.getInt("attendee_count"),
+                        rs.getBigDecimal("total_fee"),
+                        rs.getString("status"),
+                        ts != null ? ts.toLocalDateTime() : null
+                );
+            }, emailQuery, nameQuery, wildcardName);
+        } catch (Exception ex) {
+            return Collections.emptyList();
+        }
     }
 
     public List<EventRegistration> findRegistrationsByUser(String userEmail) {
         return findRegistrationsByUserOrName(userEmail, "");
+    }
+
+    public List<EventRegistration> findRegistrationsForUser(List<String> names, List<String> emails, List<Integer> specificIds) {
+        List<EventRegistration> all = findAllRegistrations();
+        if (all.isEmpty()) return all;
+
+        Set<Integer> targetIds = new HashSet<>(specificIds != null ? specificIds : Collections.emptyList());
+
+        Set<String> cleanEmails = new HashSet<>();
+        if (emails != null) {
+            for (String e : emails) {
+                if (e != null && !e.isBlank()) cleanEmails.add(e.trim().toLowerCase());
+            }
+        }
+
+        Set<String> cleanNames = new HashSet<>();
+        if (names != null) {
+            for (String n : names) {
+                if (n != null && !n.isBlank()) {
+                    String clean = n.trim().toLowerCase();
+                    cleanNames.add(clean);
+                    String[] tokens = clean.split("[\\s_.-]+");
+                    for (String token : tokens) {
+                        if (token.length() >= 3) {
+                            cleanNames.add(token);
+                        }
+                    }
+                }
+            }
+        }
+
+        List<EventRegistration> matched = new ArrayList<>();
+        for (EventRegistration r : all) {
+            boolean isMatch = false;
+
+            // 1. Direct ID match from registration receipt or local storage
+            if (targetIds.contains(r.getRegId())) {
+                isMatch = true;
+            }
+
+            // 2. Email match
+            if (!isMatch && r.getUserEmail() != null && !r.getUserEmail().isBlank()) {
+                String rEmail = r.getUserEmail().trim().toLowerCase();
+                if (cleanEmails.contains(rEmail)) {
+                    isMatch = true;
+                }
+            }
+
+            // 3. Name or Email substring match
+            if (!isMatch && r.getCustomerName() != null && !r.getCustomerName().isBlank()) {
+                String rName = r.getCustomerName().trim().toLowerCase();
+
+                if (cleanNames.contains(rName) || cleanEmails.contains(rName)) {
+                    isMatch = true;
+                }
+
+                if (!isMatch) {
+                    for (String queryName : cleanNames) {
+                        if (rName.contains(queryName) || queryName.contains(rName)) {
+                            isMatch = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!isMatch) {
+                    for (String email : cleanEmails) {
+                        String prefix = email.split("@")[0];
+                        if (prefix.length() >= 3 && (rName.contains(prefix) || prefix.contains(rName))) {
+                            isMatch = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (isMatch) {
+                matched.add(r);
+            }
+        }
+
+        return matched;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -207,11 +305,15 @@ public class DistrictEventDAO {
         List<RegCancelInfo> list = jdbcTemplate.query(selectSql, (rs, rowNum) ->
                 new RegCancelInfo(rs.getInt("event_id"), rs.getInt("attendee_count"), rs.getString("status")), regId);
 
-        if (list.isEmpty() || !"CONFIRMED".equalsIgnoreCase(list.get(0).status)) {
+        if (list.isEmpty()) {
             return false;
         }
 
         RegCancelInfo info = list.get(0);
+        if ("CANCELLED".equalsIgnoreCase(info.status)) {
+            return true;
+        }
+
         jdbcTemplate.update("UPDATE event_registrations SET status = 'CANCELLED' WHERE reg_id = ?", regId);
         jdbcTemplate.update("UPDATE towntrek_events SET registered_count = GREATEST(0, registered_count - ?) WHERE event_id = ?", info.attendees, info.eventId);
 

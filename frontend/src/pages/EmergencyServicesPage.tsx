@@ -1,12 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { ShieldAlert, Phone, MapPin, CheckCircle, Clock } from 'lucide-react';
 import api from '../services/api';
 import { EmergencyService } from '../types';
+import { useCity } from '../context/CityContext';
 
 export const EmergencyServicesPage: React.FC = () => {
   const [services, setServices] = useState<EmergencyService[]>([]);
   const [category, setCategory] = useState<string>('ALL');
   const [loading, setLoading] = useState(true);
+  const { selectedCity, matchesCity, isCityMatchingActive } = useCity();
+  const [showAllDistricts, setShowAllDistricts] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -15,6 +18,15 @@ export const EmergencyServicesPage: React.FC = () => {
       .then((res) => setServices(res.data))
       .finally(() => setLoading(false));
   }, [category]);
+
+  const filteredServices = useMemo(() => {
+    if (showAllDistricts || !isCityMatchingActive) return services;
+    const matched = services.filter(s =>
+      s.category === 'EMERGENCY_HELPLINE' ||
+      matchesCity(`${s.serviceName} ${s.address}`)
+    );
+    return matched.length > 0 ? matched : services;
+  }, [services, isCityMatchingActive, showAllDistricts, matchesCity]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
@@ -49,17 +61,34 @@ export const EmergencyServicesPage: React.FC = () => {
       {/* Directory Section Header & Filter */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-6">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center space-x-2">
-            <ShieldAlert className="w-6 h-6 text-rose-600" />
-            <span>Essential District Services Directory</span>
-          </h1>
+          <div className="flex items-center space-x-3">
+            <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight flex items-center space-x-2">
+              <ShieldAlert className="w-6 h-6 text-rose-600" />
+              <span>Essential District Services Directory</span>
+            </h1>
+            {selectedCity && (
+              <span className="text-xs bg-rose-50 text-rose-700 px-3 py-1 rounded-full font-bold border border-rose-200 flex items-center space-x-1">
+                <MapPin className="w-3.5 h-3.5" />
+                <span>{selectedCity}</span>
+              </span>
+            )}
+          </div>
           <p className="text-slate-500 text-xs mt-1">
             Hospitals, police stations, fire rescue commands, and municipal transit control rooms.
           </p>
         </div>
 
-        {/* Filter categories */}
-        <div className="flex flex-wrap gap-2">
+        {/* Filter categories & district toggle */}
+        <div className="flex flex-wrap items-center gap-2">
+          {selectedCity && (
+            <button
+              onClick={() => setShowAllDistricts(prev => !prev)}
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all border border-slate-200"
+            >
+              {showAllDistricts ? 'Filter by My District' : 'Show All Cities'}
+            </button>
+          )}
+
           {[
             { id: 'ALL', label: 'All Services' },
             { id: 'EMERGENCY_HELPLINE', label: 'Helplines' },
@@ -85,11 +114,13 @@ export const EmergencyServicesPage: React.FC = () => {
 
       {loading ? (
         <div className="text-center py-20 text-slate-400">Loading directory...</div>
-      ) : services.length === 0 ? (
-        <div className="text-center py-16 text-slate-400">No services found in this category.</div>
+      ) : filteredServices.length === 0 ? (
+        <div className="text-center py-16 text-slate-400">
+          No services found for {selectedCity || 'this category'}.
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {services.map((s) => (
+          {filteredServices.map((s) => (
             <div
               key={s.serviceId}
               className="bg-white rounded-2xl border border-slate-200 p-6 flex flex-col justify-between hover:shadow-lg transition-all space-y-4"
@@ -145,4 +176,3 @@ export const EmergencyServicesPage: React.FC = () => {
     </div>
   );
 };
-

@@ -2,6 +2,7 @@ export interface User {
   userId: number;
   fullName: string;
   email: string;
+  city?: string;
 }
 
 export interface AuthResponse {
@@ -11,6 +12,7 @@ export interface AuthResponse {
   userId?: number;
   fullName?: string;
   email?: string;
+  city?: string;
 }
 
 export interface Movie {
@@ -31,6 +33,7 @@ export interface Show {
   theatreId: number;
   theatreName: string;
   theatreLocation: string;
+  city?: string;
 }
 
 export interface Seat {
@@ -50,6 +53,7 @@ export interface MovieBookingDetail {
   showDate: string;
   showTime: string;
   seatCodes: string;
+  seats?: string;
   totalAmount: number;
   bookingStatus: 'CONFIRMED' | 'CANCELLED';
   bookingDate: string;
@@ -62,11 +66,13 @@ export interface PartyConcert {
   artistPerformer: string;
   venue: string;
   location: string;
+  city?: string;
   eventDate: string;
   eventTime: string;
   ticketPrice: number;
   totalCapacity: number;
   availableSlots: number;
+  availableSeats?: number;
   description: string;
 }
 
@@ -81,8 +87,11 @@ export interface PartyBooking {
   eventDate: string;
   eventTime: string;
   ticketsCount: number;
+  ticketCount?: number;
   totalAmount: number;
+  totalPrice?: number;
   bookingStatus: 'CONFIRMED' | 'CANCELLED';
+  status?: string;
   bookingDate: string;
 }
 
@@ -92,62 +101,82 @@ export interface DistrictEvent {
   category: string;
   venue: string;
   location: string;
+  city?: string;
   eventDate: string;
   eventTime: string;
   entryFee: number;
   maxCapacity: number;
   registeredCount: number;
   availableSlots: number;
+  availableSeats?: number;
+  organizer?: string;
   description: string;
 }
 
 export interface EventRegistration {
+  registrationId?: number;
   regId: number;
-  customerName: string;
-  userEmail: string;
   eventId: number;
   eventTitle: string;
-  venue: string;
-  eventDate: string;
-  eventTime: string;
-  attendeeCount: number;
-  totalFee: number;
+  customerName: string;
+  userEmail: string;
+  ticketsCount?: number;
+  attendeeCount?: number;
+  totalAmount?: number;
+  totalFee?: number;
   status: 'CONFIRMED' | 'CANCELLED';
-  regDate: string;
+  registrationDate?: string;
+  regDate?: string;
+  bookingStatus?: 'CONFIRMED' | 'CANCELLED';
+  venue?: string;
+  eventDate?: string;
+  eventTime?: string;
 }
 
 export interface TouristAttraction {
   attractionId: number;
   name: string;
   category: string;
+  description: string;
   location: string;
-  openingHours: string;
+  city?: string;
   entryFee: number;
-  highlights: string;
-  bestTimeToVisit: string;
+  openingHours: string;
+  imageUrl?: string;
+  bestTimeToVisit?: string;
+  highlights?: string;
 }
 
 export interface CitySpot {
   spotId: number;
   name: string;
-  spotType: string;
-  cuisineOrSpecialty: string;
-  priceRange: string;
+  category: string;
+  description: string;
   address: string;
-  rating: number;
+  city?: string;
+  openingHours: string;
+  priceRange?: string;
+  rating?: number;
+  spotType: string;
+  timings?: string;
   contactNumber: string;
-  timings: string;
+  cuisineOrSpecialty?: string;
 }
 
 export interface EmergencyService {
   serviceId: number;
   serviceName: string;
   category: string;
-  phoneNumber: string;
+  contactNumber: string;
+  phoneNumber?: string;
   alternateNumber?: string;
-  address: string;
-  is247: boolean;
   notes?: string;
+  address: string;
+  coverageArea: string;
+  isAvailable24x7: boolean;
+  is247?: boolean;
+  latitude?: number;
+  longitude?: number;
 }
 
 export interface QuickSearchResponse {
@@ -156,4 +185,3 @@ export interface QuickSearchResponse {
   parties: PartyConcert[];
   events: DistrictEvent[];
 }
-

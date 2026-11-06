@@ -1,6 +1,9 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
+import { ToastProvider } from './context/ToastContext';
+import { CityProvider } from './context/CityContext';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
 import { DatabaseStatusBanner } from './components/DatabaseStatusBanner';
@@ -16,32 +19,20 @@ import { EmergencyServicesPage } from './pages/EmergencyServicesPage';
 import { MyPassesPage } from './pages/MyPassesPage';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
+import { OnboardingPage } from './pages/OnboardingPage';
+import { UserProfilePage } from './pages/UserProfilePage';
 
 const AppContent: React.FC = () => {
   const { isAuthenticated } = useAuth();
 
-  // If user is not authenticated, show strictly the Sign In / Register flow without any footer or extra discovery section below
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-center">
-        <ScrollToTop />
-        <DatabaseStatusBanner />
-        <main className="flex-1 flex items-center justify-center p-4">
-          <Routes>
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="*" element={<LoginPage />} />
-          </Routes>
-        </main>
-      </div>
-    );
-  }
-
-  // Once signed in, access the full TownTrek app with light theme and compact footer
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50 text-slate-900">
+    <div className="flex flex-col min-h-screen bg-white dark:bg-black text-slate-900 dark:text-white transition-colors duration-300">
       <ScrollToTop />
       <DatabaseStatusBanner />
+      
+      {/* Liquid Glass Navbar */}
       <Navbar />
+
       <main className="flex-1">
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -52,12 +43,20 @@ const AppContent: React.FC = () => {
           <Route path="/attractions" element={<TouristAttractionsPage />} />
           <Route path="/dining" element={<DiningShoppingPage />} />
           <Route path="/emergency" element={<EmergencyServicesPage />} />
-          <Route path="/passes" element={<MyPassesPage />} />
-          <Route path="/login" element={<Navigate to="/" replace />} />
-          <Route path="/register" element={<Navigate to="/" replace />} />
+          <Route path="/passes" element={isAuthenticated ? <MyPassesPage /> : <Navigate to="/auth" replace />} />
+          <Route path="/profile" element={isAuthenticated ? <UserProfilePage /> : <Navigate to="/auth" replace />} />
+          
+          {/* Auth & Onboarding Flow: Redirect to Home if already authenticated */}
+          <Route path="/auth" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} />
+          <Route path="/login" element={<Navigate to={isAuthenticated ? "/" : "/auth"} replace />} />
+          <Route path="/register" element={isAuthenticated ? <Navigate to="/" replace /> : <RegisterPage />} />
+          <Route path="/onboarding" element={isAuthenticated ? <Navigate to="/" replace /> : <OnboardingPage />} />
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
+
+      {/* Interactive Sticker Slap Footer */}
       <Footer />
     </div>
   );
@@ -65,10 +64,18 @@ const AppContent: React.FC = () => {
 
 export const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <CityProvider>
+          <ToastProvider>
+            <BrowserRouter>
+              <AppContent />
+            </BrowserRouter>
+          </ToastProvider>
+        </CityProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 };
+
+export default App;

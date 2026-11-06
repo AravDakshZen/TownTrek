@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -21,6 +22,15 @@ public class DataSourceConfig {
 
     private static final Logger log = LoggerFactory.getLogger(DataSourceConfig.class);
 
+    @Value("${spring.datasource.url:jdbc:mysql://localhost:3306/towntrek_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8&allowMultiQueries=true}")
+    private String springUrl;
+
+    @Value("${spring.datasource.username:root}")
+    private String springUser;
+
+    @Value("${spring.datasource.password:}")
+    private String springPassword;
+
     @Bean
     @Primary
     public DataSource dataSource() {
@@ -35,26 +45,27 @@ public class DataSourceConfig {
             if (f.exists()) {
                 try (FileInputStream fis = new FileInputStream(f)) {
                     props.load(fis);
-                    log.info("Loaded database configuration from: {}", f.getAbsolutePath());
+                    log.info("Loaded external db configuration from: {}", f.getAbsolutePath());
                     break;
                 } catch (Exception ignored) {}
             }
         }
 
+        // Priority: 1. Environment Variable -> 2. external db.properties -> 3. application.properties
         String envUrl = System.getenv("DB_URL");
         String envUser = System.getenv("DB_USER");
         String envPass = System.getenv("DB_PASSWORD");
 
         String url = envUrl != null && !envUrl.isBlank() ? envUrl
-                : props.getProperty("db.url", "jdbc:mysql://localhost:3306/movie_booking_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8&allowMultiQueries=true");
+                : props.getProperty("db.url", springUrl);
 
         String user = envUser != null && !envUser.isBlank() ? envUser
-                : props.getProperty("db.user", "root");
+                : props.getProperty("db.user", springUser);
 
         String password = envPass != null ? envPass
-                : props.getProperty("db.password", "Aravintth@10");
+                : props.getProperty("db.password", springPassword);
 
-        // 1. Ensure movie_booking_db exists in MySQL
+        // 1. Ensure towntrek_db exists in MySQL
         ensureDatabaseExists(user, password);
 
         // 2. Configure HikariCP
@@ -70,12 +81,12 @@ public class DataSourceConfig {
         try {
             HikariDataSource ds = new HikariDataSource(config);
             try (Connection conn = ds.getConnection()) {
-                log.info("--> [SUCCESS] Connected to MySQL database '{}' as user '{}'", conn.getCatalog(), user);
+                log.info("--> [SUCCESS] Connected to MySQL database '{}' on port 3306 as user '{}'", conn.getCatalog(), user);
             }
             return ds;
         } catch (Exception ex) {
-            log.warn("Primary connection with password '{}' failed: {}. Trying fallback with blank password...", password, ex.getMessage());
-            if (!password.isEmpty()) {
+            log.warn("Connection attempt with current password failed: {}. Trying fallback with blank password...", ex.getMessage());
+            if (password != null && !password.isEmpty()) {
                 try {
                     config.setPassword("");
                     HikariDataSource dsFallback = new HikariDataSource(config);
@@ -95,11 +106,10 @@ public class DataSourceConfig {
         String serverUrl = "jdbc:mysql://localhost:3306/?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC";
         try (Connection conn = DriverManager.getConnection(serverUrl, user, password);
              Statement stmt = conn.createStatement()) {
-            stmt.executeUpdate("CREATE DATABASE IF NOT EXISTS movie_booking_db");
-            log.info("Verified/Created database 'movie_booking_db' in MySQL.");
+            stmt.executeUpdate("CREATE DATABASE IF NOT EXISTS towntrek_db");
+            log.info("Verified/Created database 'towntrek_db' in MySQL.");
         } catch (Exception e) {
             log.debug("ensureDatabaseExists notice: {}", e.getMessage());
         }
     }
 }
-

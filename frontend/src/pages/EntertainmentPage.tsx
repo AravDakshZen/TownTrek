@@ -1,12 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { Music, MapPin, Calendar, Clock, Ticket, CheckCircle2, AlertCircle, ArrowUpRight, X, User, Mail, Sparkles } from 'lucide-react';
+import { Music, MapPin, Calendar, Clock, Ticket, AlertCircle, ArrowUpRight, X, User, Mail, Sparkles, CheckCircle2 } from 'lucide-react';
 import api from '../services/api';
 import { PartyConcert } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { getConcertImage } from '../utils/locationImages';
+import { useToast } from '../context/ToastContext';
+import { useCity } from '../context/CityContext';
+import { AnimatedTicket } from '../components/ui/ticket-confirmation-card';
+import { SlideActionButton } from '../components/ui/slide-action-button';
+import { getConcertImage, FALLBACK_IMAGE } from '../utils/locationImages';
 
 export const EntertainmentPage: React.FC = () => {
   const { user, isAuthenticated, openAuthModal } = useAuth();
+  const { toast } = useToast();
+  const { selectedCity, matchesCity, isCityMatchingActive } = useCity();
   const [events, setEvents] = useState<PartyConcert[]>([]);
   const [category, setCategory] = useState<string>('ALL');
   const [loading, setLoading] = useState(true);
@@ -33,10 +39,6 @@ export const EntertainmentPage: React.FC = () => {
   }, [category]);
 
   const handleCardClick = (event: PartyConcert) => {
-    if (!isAuthenticated) {
-      openAuthModal(`Sign in or create an account to view artist details and book passes for "${event.title}".`);
-      return;
-    }
     setSelectedEvent(event);
     setTicketCount(1);
     setConfirmedBookingData(null);
@@ -47,11 +49,15 @@ export const EntertainmentPage: React.FC = () => {
     }
   };
 
-  const handleConfirmBooking = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleDirectBooking = async () => {
     if (!selectedEvent) return;
+    if (!isAuthenticated) {
+      openAuthModal(`Sign in or create an account to book passes for "${selectedEvent.title}".`);
+      return;
+    }
     if (!customerName.trim() || !customerEmail.trim()) {
       setBookingError('Name and email are required to issue party passes.');
+      toast.error('Missing Information', 'Please provide attendee name and email.');
       return;
     }
 
@@ -67,6 +73,15 @@ export const EntertainmentPage: React.FC = () => {
       });
       localStorage.setItem('towntrek_last_booking_name', customerName.trim());
       localStorage.setItem('towntrek_last_booking_email', customerEmail.trim());
+      if (res.data?.bookingId) {
+        try {
+          const stored = JSON.parse(localStorage.getItem('towntrek_booked_party_ids') || '[]');
+          if (!stored.includes(res.data.bookingId)) {
+            stored.push(res.data.bookingId);
+            localStorage.setItem('towntrek_booked_party_ids', JSON.stringify(stored));
+          }
+        } catch (_) {}
+      }
       
       const totalPrice = Number(selectedEvent.ticketPrice) * ticketCount;
       setConfirmedBookingData({
@@ -80,29 +95,43 @@ export const EntertainmentPage: React.FC = () => {
         customerName: customerName.trim(),
         customerEmail: customerEmail.trim(),
       });
+      toast.success('Pass Confirmed!', `${selectedEvent.title} • ${ticketCount} Passes`);
       fetchEvents();
     } catch (err: any) {
-      setBookingError(err.response?.data?.error || 'Failed to complete booking.');
+      const msg = err.response?.data?.error || 'Failed to complete booking.';
+      setBookingError(msg);
+      toast.error('Booking Failed', msg);
     } finally {
       setBookingLoading(false);
     }
   };
 
+  const handleConfirmBooking = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleDirectBooking();
+  };
+
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8 font-['Be_Vietnam_Pro',sans-serif]">
+      {/* Filter categories & District Badge */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
         <div>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight flex items-center space-x-3">
-            <Music className="w-8 h-8 text-purple-600" />
+          <h1 className="text-[24px] font-bold text-slate-900 dark:text-white tracking-tight flex items-center space-x-3 font-['Be_Vietnam_Pro',sans-serif]">
+            <Music className="w-7 h-7 text-purple-600 dark:text-purple-400" />
             <span>Parties, Live Concerts &amp; Comedy Nights</span>
           </h1>
-          <p className="text-slate-500 text-sm mt-1">
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 font-light desc-lighter">
             Browse live performances, DJ sets, and standup shows. Click on any card to view artist details and issue passes.
           </p>
+          {isCityMatchingActive && (
+            <div className="mt-2 inline-flex items-center space-x-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-600 dark:text-purple-300 border border-purple-500/20">
+              <MapPin className="w-3.5 h-3.5" />
+              <span>Matching district: <strong>{selectedCity}</strong></span>
+            </div>
+          )}
         </div>
 
-        {/* Filter categories */}
+        {/* Filter categories - Glass Type */}
         <div className="flex flex-wrap gap-2">
           {[
             { id: 'ALL', label: 'All Shows' },
@@ -113,10 +142,10 @@ export const EntertainmentPage: React.FC = () => {
             <button
               key={cat.id}
               onClick={() => setCategory(cat.id)}
-              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`px-4 py-2 rounded-full text-xs font-semibold backdrop-blur-md transition-all border ${
                 category === cat.id
-                  ? 'bg-purple-600 text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  ? 'bg-purple-500/25 border-purple-500/50 text-purple-700 dark:text-purple-300 shadow-sm'
+                  : 'bg-white/40 dark:bg-white/5 border-slate-200/80 dark:border-white/10 text-slate-700 dark:text-slate-300 hover:bg-white/70 hover:border-purple-400'
               }`}
             >
               {cat.label}
@@ -126,18 +155,21 @@ export const EntertainmentPage: React.FC = () => {
       </div>
 
       {loading ? (
-        <div className="text-center py-20 text-slate-400">Loading events from district database...</div>
+        <div className="text-center py-20 text-muted-foreground">Loading events from district database...</div>
       ) : events.length === 0 ? (
-        <div className="text-center py-16 text-slate-400">No events found in this category.</div>
+        <div className="text-center py-16 text-muted-foreground">No events found in this category.</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {events.map((e) => {
+          {(isCityMatchingActive && events.some(e => matchesCity(`${e.city || ''} ${e.venue} ${e.location}`))
+            ? events.filter(e => matchesCity(`${e.city || ''} ${e.venue} ${e.location}`))
+            : events
+          ).map((e) => {
             const imageUrl = getConcertImage(e.eventId);
             return (
               <div
                 key={e.eventId}
                 onClick={() => handleCardClick(e)}
-                className="group cursor-pointer bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-xl hover:border-purple-300 transition-all duration-300 flex flex-col justify-between"
+                className="group cursor-pointer bg-card text-card-foreground rounded-3xl border border-border overflow-hidden shadow-sm hover:shadow-xl hover:border-purple-500/40 transition-all duration-300 flex flex-col justify-between"
               >
                 {/* Event Photo Header */}
                 <div className="relative h-52 w-full overflow-hidden bg-slate-900">
@@ -146,8 +178,11 @@ export const EntertainmentPage: React.FC = () => {
                     alt={e.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     loading="lazy"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = FALLBACK_IMAGE;
+                    }}
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent to-transparent" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
 
                   <div className="absolute top-3 left-3">
                     <span className="font-bold text-[11px] text-purple-900 bg-white/95 backdrop-blur-md px-2.5 py-1 rounded-full shadow-sm">
@@ -155,51 +190,52 @@ export const EntertainmentPage: React.FC = () => {
                     </span>
                   </div>
 
-                  <div className="absolute top-3 right-3">
-                    <span className="font-extrabold text-xs text-white bg-slate-900/80 backdrop-blur-md px-2.5 py-1 rounded-full shadow-sm">
+                  <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between">
+                    <div>
+                      <p className="text-purple-300 text-xs font-semibold uppercase tracking-wider">Performer</p>
+                      <p className="text-white font-bold text-base drop-shadow-md">{e.artistPerformer}</p>
+                    </div>
+                    <div className="bg-purple-500/20 backdrop-blur-md border border-purple-400/40 text-purple-200 px-2.5 py-1 rounded-lg text-xs font-bold">
                       ₹ {e.ticketPrice}
-                    </span>
-                  </div>
-
-                  <div className="absolute bottom-3 left-4 right-4 flex items-center justify-between text-white text-xs">
-                    <span className="truncate max-w-[200px] text-purple-200 font-semibold">
-                      {e.artistPerformer}
-                    </span>
-                    <span className="bg-white/20 backdrop-blur-md px-2 py-0.5 rounded text-[11px]">
-                      {e.availableSlots} slots left
-                    </span>
+                    </div>
                   </div>
                 </div>
 
-                {/* Event Details */}
-                <div className="p-6 space-y-4 flex-1 flex flex-col justify-between">
-                  <div className="space-y-3">
-                    <h2 className="text-lg font-bold text-slate-900 group-hover:text-purple-600 transition-colors leading-snug">
+                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                  <div>
+                    <h3 className="font-bold text-lg text-foreground group-hover:text-purple-500 transition-colors line-clamp-1">
                       {e.title}
-                    </h2>
-
-                    <div className="space-y-1.5 text-xs text-slate-500 pt-2 border-t border-slate-100">
-                      <div className="flex items-center space-x-1.5">
-                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span className="truncate">{e.venue} ({e.location})</span>
-                      </div>
-                      <div className="flex items-center space-x-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        <span>{e.eventDate} at {e.eventTime}</span>
-                      </div>
-                    </div>
-
-                    <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                    </h3>
+                    <p className="text-muted-foreground text-xs line-clamp-2 mt-1 leading-relaxed">
                       {e.description}
                     </p>
                   </div>
 
-                  <div className="pt-4 border-t border-slate-100 flex items-center justify-between text-xs">
-                    <span className="font-semibold text-purple-600 group-hover:underline flex items-center space-x-1">
-                      <Ticket className="w-3.5 h-3.5" />
-                      <span>Click to Select &amp; Book</span>
+                  <div className="space-y-2 text-xs text-muted-foreground border-t border-border pt-3">
+                    <div className="flex items-center space-x-2">
+                      <MapPin className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                      <span className="truncate">{e.venue}, {e.location}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Calendar className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                        <span>{e.eventDate}</span>
+                      </div>
+                      <div className="flex items-center space-x-1.5">
+                        <Clock className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                        <span>{e.eventTime}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-between text-xs font-semibold">
+                    <span className="text-muted-foreground">
+                      Available: <strong className="text-foreground">{e.availableSeats} passes</strong>
                     </span>
-                    <ArrowUpRight className="w-4 h-4 text-slate-400 group-hover:text-purple-600 transition-colors" />
+                    <span className="inline-flex items-center space-x-1 text-purple-600 dark:text-purple-400 group-hover:translate-x-0.5 transition-transform">
+                      <span>View &amp; Book</span>
+                      <ArrowUpRight className="w-3.5 h-3.5" />
+                    </span>
                   </div>
                 </div>
               </div>
@@ -208,118 +244,95 @@ export const EntertainmentPage: React.FC = () => {
         </div>
       )}
 
-      {/* Interactive Detail Modal & Booking Pass */}
+      {/* Booking Modal with Crystal Glass Window & Blur */}
       {selectedEvent && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in">
-          <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]">
-            {/* Header Image */}
-            <div className="relative h-48 sm:h-56 w-full bg-slate-900 shrink-0 overflow-hidden">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white/90 dark:bg-neutral-900/90 backdrop-blur-2xl border border-white/60 dark:border-white/10 text-slate-900 dark:text-slate-100 w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col ring-1 ring-black/5 dark:ring-white/10 font-['Be_Vietnam_Pro',sans-serif]">
+            {/* Modal Header */}
+            <div className="relative h-44 w-full overflow-hidden bg-slate-950 shrink-0">
               <img
                 src={getConcertImage(selectedEvent.eventId)}
                 alt={selectedEvent.title}
                 className="w-full h-full object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent" />
-              
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent" />
               <button
+                type="button"
                 onClick={() => setSelectedEvent(null)}
-                className="absolute top-4 right-4 p-2 rounded-full bg-white/20 text-white hover:bg-white/40 transition-colors"
+                className="absolute top-4 right-4 p-2 rounded-full bg-black/50 text-white/80 hover:text-white hover:bg-black/80 transition-colors z-10"
               >
-                <X className="w-5 h-5" />
+                <X className="w-4 h-4" />
               </button>
-
-              <div className="absolute bottom-4 left-6 right-6 text-white space-y-1">
-                <span className="text-xs font-bold uppercase tracking-wider text-purple-300 bg-purple-900/60 backdrop-blur-md px-2.5 py-0.5 rounded-full">
+              <div className="absolute bottom-4 left-6 right-6">
+                <span className="text-[11px] font-bold text-purple-400 uppercase tracking-widest block mb-0.5">
                   {selectedEvent.category.replace('_', ' ')}
                 </span>
-                <h2 className="text-xl sm:text-2xl font-bold drop-shadow">{selectedEvent.title}</h2>
-                <p className="text-xs text-purple-200">Performer: {selectedEvent.artistPerformer}</p>
+                <h2 className="text-[24px] font-bold text-white drop-shadow font-['Be_Vietnam_Pro',sans-serif] leading-tight">
+                  {selectedEvent.title}
+                </h2>
+                <p className="text-xs text-purple-200/90 font-light desc-lighter">Performer: {selectedEvent.artistPerformer}</p>
               </div>
             </div>
 
             {/* Modal Body */}
             <div className="p-6 sm:p-8 space-y-6 overflow-y-auto">
               {confirmedBookingData ? (
-                /* Confirmed Booking Pass View */
-                <div className="space-y-6 text-center">
-                  <div className="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
-                    <CheckCircle2 className="w-7 h-7" />
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Pass Issued &amp; Confirmed</span>
-                    <h3 className="text-2xl font-extrabold text-slate-900">Your Concert Pass is Ready!</h3>
-                    <p className="text-xs text-slate-500 mt-1">Pass ID: #{confirmedBookingData.bookingId} &bull; Synced with TownTrek District</p>
-                  </div>
+                /* Confirmed Booking Pass View with AnimatedTicket */
+                <div className="space-y-6">
+                  <AnimatedTicket
+                    ticketId={`#TT-CN-${confirmedBookingData.bookingId}`}
+                    amount={confirmedBookingData.totalPrice}
+                    date={new Date(confirmedBookingData.eventDate)}
+                    cardHolder={confirmedBookingData.customerName}
+                    eventTitle={confirmedBookingData.eventTitle}
+                    venue={confirmedBookingData.venue}
+                    seatCodes={`${confirmedBookingData.ticketCount} Attendee Pass(es)`}
+                    status="CONFIRMED"
+                  />
 
-                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 text-left space-y-2.5 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Event:</span>
-                      <span className="font-bold text-slate-900">{confirmedBookingData.eventTitle}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Venue:</span>
-                      <span className="font-bold text-slate-900">{confirmedBookingData.venue}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Date &amp; Time:</span>
-                      <span className="font-bold text-slate-900">{confirmedBookingData.eventDate} at {confirmedBookingData.eventTime}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Pass Holder:</span>
-                      <span className="font-bold text-slate-900">{confirmedBookingData.customerName}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-slate-500">Passes Booked:</span>
-                      <span className="font-bold text-purple-600">{confirmedBookingData.ticketCount} Attendee(s)</span>
-                    </div>
-                    <div className="pt-2 border-t border-slate-200 flex justify-between text-sm">
-                      <span className="font-bold text-slate-700">Total Paid:</span>
-                      <span className="font-extrabold text-slate-900">₹ {confirmedBookingData.totalPrice}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-center space-x-3">
+                  <div className="flex justify-center space-x-3 pt-2">
                     <a
                       href="/passes"
-                      className="px-5 py-2.5 rounded-xl bg-slate-900 text-white font-semibold text-xs hover:bg-slate-800 transition-colors"
+                      className="px-5 py-2.5 rounded-2xl bg-purple-600 text-white font-bold text-xs hover:bg-purple-500 shadow-md transition-colors"
                     >
                       View in My Passes
                     </a>
                     <button
+                      type="button"
                       onClick={() => setSelectedEvent(null)}
-                      className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-semibold text-xs hover:bg-slate-50 transition-colors"
+                      className="px-5 py-2.5 rounded-2xl border border-slate-200 dark:border-white/10 text-slate-700 dark:text-slate-300 font-semibold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
-                      Done
+                      Close
                     </button>
                   </div>
                 </div>
               ) : (
                 /* Booking Form */
                 <form onSubmit={handleConfirmBooking} className="space-y-5">
-                  <div className="grid grid-cols-2 gap-3 text-xs bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <div className="grid grid-cols-2 gap-3 text-xs bg-slate-100/70 dark:bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-slate-200/80 dark:border-white/10">
                     <div>
-                      <span className="text-slate-400 block font-medium">Date &amp; Time</span>
-                      <span className="font-bold text-slate-800">{selectedEvent.eventDate} at {selectedEvent.eventTime}</span>
+                      <span className="text-slate-500 dark:text-slate-400 block font-medium">Date &amp; Time</span>
+                      <span className="font-bold text-slate-900 dark:text-white">{selectedEvent.eventDate} at {selectedEvent.eventTime}</span>
                     </div>
                     <div>
-                      <span className="text-slate-400 block font-medium">Ticket Price</span>
-                      <span className="font-bold text-purple-600">₹ {selectedEvent.ticketPrice} / pass</span>
+                      <span className="text-slate-500 dark:text-slate-400 block font-medium">Ticket Price</span>
+                      <span className="font-bold text-purple-600 dark:text-purple-400">₹ {selectedEvent.ticketPrice} / pass</span>
                     </div>
-                    <div className="col-span-2 pt-2 border-t border-slate-200">
-                      <span className="text-slate-400 block font-medium">Venue Address</span>
-                      <span className="font-semibold text-slate-800">{selectedEvent.venue}, {selectedEvent.location}</span>
+                    <div className="col-span-2 pt-2 border-t border-slate-200/80 dark:border-white/10">
+                      <span className="text-slate-500 dark:text-slate-400 block font-medium">Venue Address</span>
+                      <span className="font-semibold text-slate-900 dark:text-white">{selectedEvent.venue}, {selectedEvent.location}</span>
                     </div>
                   </div>
 
                   <div className="space-y-1">
-                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">Description</span>
-                    <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3 rounded-xl">
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">Description</span>
+                    <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed bg-slate-100/70 dark:bg-white/5 backdrop-blur-md p-3.5 rounded-2xl border border-slate-200/80 dark:border-white/10 font-light desc-lighter">
                       {selectedEvent.description}
                     </p>
                   </div>
 
                   {bookingError && (
-                    <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center space-x-2">
+                    <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-600 dark:text-rose-400 text-xs flex items-center space-x-2">
                       <AlertCircle className="w-4 h-4 shrink-0" />
                       <span>{bookingError}</span>
                     </div>
@@ -327,63 +340,68 @@ export const EntertainmentPage: React.FC = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Attendee Name</label>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Attendee Name</label>
                       <input
                         type="text"
                         required
                         value={customerName}
                         onChange={(e) => setCustomerName(e.target.value)}
                         placeholder="e.g. Aravindh Murugesh"
-                        className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        className="w-full px-4 py-2.5 text-xs rounded-2xl bg-white/80 dark:bg-white/10 backdrop-blur-md border border-slate-200 dark:border-white/15 focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-900 dark:text-white shadow-sm font-['Be_Vietnam_Pro',sans-serif]"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-slate-700 mb-1">Attendee Email</label>
+                      <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Attendee Email</label>
                       <input
                         type="email"
                         required
                         value={customerEmail}
                         onChange={(e) => setCustomerEmail(e.target.value)}
                         placeholder="name@district.com"
-                        className="w-full px-3.5 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                        className="w-full px-4 py-2.5 text-xs rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-purple-500 text-slate-900 dark:text-white shadow-sm font-['Be_Vietnam_Pro',sans-serif]"
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-slate-700 mb-1">Number of Passes</label>
+                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-200 mb-1">Number of Passes</label>
                     <div className="flex items-center space-x-3">
                       <select
                         value={ticketCount}
                         onChange={(e) => setTicketCount(Number(e.target.value))}
-                        className="px-3.5 py-2 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-purple-500 font-semibold"
+                        className="px-4 py-2.5 text-xs rounded-2xl bg-white dark:bg-slate-800/80 border border-slate-200 dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-purple-500 font-semibold text-slate-900 dark:text-white"
                       >
                         {[1, 2, 3, 4, 5, 6].map((n) => (
                           <option key={n} value={n}>{n} Pass{n > 1 ? 'es' : ''}</option>
                         ))}
                       </select>
-                      <span className="text-xs text-slate-500">
-                        Total: <strong className="text-slate-900 text-sm">₹ {Number(selectedEvent.ticketPrice) * ticketCount}</strong>
+                      <span className="text-xs text-slate-500 dark:text-slate-400">
+                        Total: <strong className="text-slate-900 dark:text-white text-sm">₹ {Number(selectedEvent.ticketPrice) * ticketCount}</strong>
                       </span>
                     </div>
                   </div>
 
-                  <div className="pt-2 border-t border-slate-100 flex items-center justify-end space-x-3">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedEvent(null)}
-                      className="px-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={bookingLoading}
-                      className="px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shadow-md transition-all flex items-center space-x-1.5"
-                    >
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>{bookingLoading ? 'Issuing Pass...' : `Confirm & Issue Pass (₹ ${Number(selectedEvent.ticketPrice) * ticketCount})`}</span>
-                    </button>
+                  {/* Slide Action Button for Pass Booking */}
+                  <div className="pt-2 border-t border-slate-200 dark:border-white/10 space-y-3">
+                    <div className="w-full">
+                      <SlideActionButton
+                        onComplete={handleDirectBooking}
+                        disabled={bookingLoading}
+                        className="w-full"
+                      >
+                        {bookingLoading ? 'Issuing Pass...' : `Slide to book pass • ₹${Number(selectedEvent.ticketPrice) * ticketCount}`}
+                      </SlideActionButton>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setSelectedEvent(null)}
+                        className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 </form>
               )}

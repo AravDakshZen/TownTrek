@@ -155,6 +155,7 @@ public class MovieController {
         try {
             int bookingId = bookingDAO.createBooking(
                     request.getCustomerName(),
+                    request.getCustomerEmail(),
                     request.getMovieId(),
                     request.getShowId(),
                     request.getSeatCodes(),
@@ -171,5 +172,14 @@ public class MovieController {
             err.put("error", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(err);
         }
+    }
+
+    @PostMapping({"/cancel/{id}", "/{id}/cancel"})
+    public ResponseEntity<Map<String, Object>> cancelBooking(@PathVariable int id) {
+        boolean ok = bookingDAO.cancelBooking(id);
+        Map<String, Object> res = new HashMap<>();
+        res.put("success", ok);
+        res.put("message", ok ? "Booking #" + id + " cancelled. Seats released." : "Failed to cancel movie booking.");
+        return ResponseEntity.ok(res);
     }
 }

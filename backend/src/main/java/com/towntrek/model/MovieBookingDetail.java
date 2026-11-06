@@ -8,6 +8,7 @@ import java.time.LocalTime;
 public class MovieBookingDetail {
     private int bookingId;
     private String customerName;
+    private String customerEmail;
     private String movieName;
     private String theatreName;
     private LocalDate showDate;
@@ -22,8 +23,15 @@ public class MovieBookingDetail {
     public MovieBookingDetail(int bookingId, String customerName, String movieName, String theatreName,
                               LocalDate showDate, LocalTime showTime, String seatCodes, BigDecimal totalAmount,
                               String bookingStatus, LocalDateTime bookingDate) {
+        this(bookingId, customerName, "", movieName, theatreName, showDate, showTime, seatCodes, totalAmount, bookingStatus, bookingDate);
+    }
+
+    public MovieBookingDetail(int bookingId, String customerName, String customerEmail, String movieName, String theatreName,
+                              LocalDate showDate, LocalTime showTime, String seatCodes, BigDecimal totalAmount,
+                              String bookingStatus, LocalDateTime bookingDate) {
         this.bookingId = bookingId;
         this.customerName = customerName;
+        this.customerEmail = customerEmail;
         this.movieName = movieName;
         this.theatreName = theatreName;
         this.showDate = showDate;
@@ -39,6 +47,9 @@ public class MovieBookingDetail {
 
     public String getCustomerName() { return customerName; }
     public void setCustomerName(String customerName) { this.customerName = customerName; }
+
+    public String getCustomerEmail() { return customerEmail; }
+    public void setCustomerEmail(String customerEmail) { this.customerEmail = customerEmail; }
 
     public String getMovieName() { return movieName; }
     public void setMovieName(String movieName) { this.movieName = movieName; }
@@ -64,4 +75,3 @@ public class MovieBookingDetail {
     public LocalDateTime getBookingDate() { return bookingDate; }
     public void setBookingDate(LocalDateTime bookingDate) { this.bookingDate = bookingDate; }
 }
-
